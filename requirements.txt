@@ -12,3 +12,4 @@ marshmallow-sqlalchemy>=0.29.0
 marshmallow>=3.18.0
 eventlet>=0.33.3
 openai>=0.27.0
+kombu>=5.5.4
