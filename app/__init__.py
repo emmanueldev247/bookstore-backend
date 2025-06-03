@@ -45,15 +45,17 @@ def create_app() -> Flask:
     from app import models  # noqa: F401, E402
     from app.auth.routes import auth_blp
     from app.books.routes import books_blp
+    from app.orders.routes import cart_blp
     from app.health.routes import health_bp
+    from app.orders.routes import orders_blp
 
     # Register blueprints
-
     app.register_blueprint(health_bp, url_prefix="/api/health")
-    # app.register_blueprint(auth_blp, url_prefix="/api/auth")
 
     api.register_blueprint(auth_blp)
     api.register_blueprint(books_blp)
+    api.register_blueprint(cart_blp)
+    api.register_blueprint(orders_blp)
 
     return app
 

@@ -1,6 +1,7 @@
 """Define configuration classes for different environments."""
 import os
 from datetime import timedelta
+from app.error_handlers import InvalidUsage
 
 
 class Config:
@@ -13,27 +14,21 @@ class Config:
     # Core flags (default to False/production if not explicitly set)
     DEBUG: bool = os.getenv("DEBUG", "False").lower() in ["true", "1"]
     TESTING: bool = os.getenv("TESTING", "False").lower() in ["true", "1"]
-    # We keep ENV here so that you can inspect it in your code if needed.
     ENV: str = os.getenv("ENV", "production")
 
     # Flask/Extension settings
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "default_secret_key")
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "default_jwt_secret_key")
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=3)  # 3 hours access token
-    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=1)  # 1 day refresh token
+    SECRET_KEY: str = os.getenv("SECRET_KEY")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+    JWT_ACCESS_TOKEN_EXPIRES: str = timedelta(hours=3)
+    JWT_REFRESH_TOKEN_EXPIRES: str = timedelta(days=1)
 
-    SQLALCHEMY_DATABASE_URI: str = os.getenv(
-        "DATABASE_URL", "postgresql://debug:debug@localhost:5432/bookstore_db"
-    )
+    SQLALCHEMY_DATABASE_URI: str = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
 
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "default_openai_api_key")
-    SOCKETIO_MESSAGE_QUEUE: str = os.getenv(
-        "RABBITMQ_URL",
-        "amqp://guest:guest@localhost:5672/",
-    )
+    SOCKETIO_MESSAGE_QUEUE = os.getenv("RABBITMQ_URL")
+    RABBITMQ_URL = SOCKETIO_MESSAGE_QUEUE
 
-    # OpenAPI settings (for flask-smorest or similar)
+    # OpenAPI Docs
     API_TITLE: str = "Bookstore Backend API"
     API_VERSION: str = "1.0"
     OPENAPI_VERSION: str = "3.0.2"
@@ -42,6 +37,22 @@ class Config:
     OPENAPI_SWAGGER_UI_URL: str = (
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
     )
+
+    def __init__(self):
+        """Raise if required environment variables are missing."""
+        required_vars = {
+            "SECRET_KEY": self.SECRET_KEY,
+            "JWT_SECRET_KEY": self.JWT_SECRET_KEY,
+            "DATABASE_URL": self.SQLALCHEMY_DATABASE_URI,
+        }
+
+        missing = [k for k, v in required_vars.items() if not v]
+        if missing:
+            raise InvalidUsage(
+                message="Missing required environment "
+                f"variables: {', '.join(missing)}",
+                status_code=500,
+            )
 
 
 class DevelopmentConfig(Config):
@@ -60,7 +71,7 @@ class TestingConfig(Config):
     DEBUG: bool = True
     ENV: str = "testing"
     SQLALCHEMY_DATABASE_URI: str = (
-        "postgresql://test:test@localhost:5432/bookstore_db"
+        "postgresql://test:test@localhost:5432/bookstore_test"
     )
 
 
