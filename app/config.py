@@ -19,12 +19,11 @@ class Config:
     # Flask/Extension settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "default_secret_key")
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "default_jwt_secret_key")
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)  # 1 hour access token
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=3)  # 3 hours access token
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=1)  # 1 day refresh token
 
     SQLALCHEMY_DATABASE_URI: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql://user:password@localhost:5432/" "bookstore_db",
+        "DATABASE_URL", "postgresql://debug:debug@localhost:5432/bookstore_db"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
 
@@ -46,16 +45,12 @@ class Config:
 
 
 class DevelopmentConfig(Config):
-    """
-    Configuration for local development.
-
-    Debug & reloader ON; use a local dev database, etc.
-    """
+    """Configuration for local development."""
 
     DEBUG: bool = True
     ENV: str = "development"
     SQLALCHEMY_DATABASE_URI: str = (
-        "postgresql://debug:debug@localhost:5432/" "bookstore_db"
+        "postgresql://debug:debug@localhost:5432/bookstore_db"
     )
 
 
@@ -65,16 +60,12 @@ class TestingConfig(Config):
     DEBUG: bool = True
     ENV: str = "testing"
     SQLALCHEMY_DATABASE_URI: str = (
-        "postgresql://test:test@localhost:5432/" "bookstore_db"
+        "postgresql://test:test@localhost:5432/bookstore_db"
     )
 
 
 class ProductionConfig(Config):
-    """
-    Configuration for production.
-
-    Debug & auto-reload OFF; use real production database URL, etc.
-    """
+    """Configuration for production."""
 
     DEBUG: bool = False
     ENV: str = "production"
