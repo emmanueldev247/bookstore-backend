@@ -29,14 +29,25 @@ class UserResponseWrapper(StandardResponseSchema):
     data = fields.Nested(UserResponseSchema)
 
 
-class TokenSchema(Schema):
+class RefreshTokenSchema(Schema):
     """Schema for serializing refresh tokens."""
 
     access_token = fields.Str(required=True)
-    refresh_token = fields.Str(required=False)
 
 
-class TokenResponseWrapper(StandardResponseSchema):
-    """Schema for wrapping token response data."""
+class AccessTokenSchema(RefreshTokenSchema):
+    """Schema for serializing access tokens."""
 
-    data = fields.Nested(TokenSchema)
+    refresh_token = fields.Str(required=True)
+
+
+class RefreshTokenWrapper(StandardResponseSchema):
+    """Schema for wrapping refresh response data."""
+
+    data = fields.Nested(RefreshTokenSchema)
+
+
+class AccessTokenWrapper(StandardResponseSchema):
+    """Schema for wrapping access response data."""
+
+    data = fields.Nested(AccessTokenSchema)

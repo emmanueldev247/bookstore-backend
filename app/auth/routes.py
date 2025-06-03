@@ -1,59 +1,53 @@
 """Routes for user registration, login, and token refresh."""
 
 from flask import current_app
-from flask_smorest import Blueprint
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
     get_jwt_identity,
     jwt_required,
 )
+from psycopg2 import errorcodes
 from marshmallow import ValidationError
-from psycopg2.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
 
-from app.auth.models import User
 from app.auth.schemas import (
-    TokenResponseWrapper,
+    AccessTokenWrapper,
+    RefreshTokenWrapper,
     UserAuthSchema,
     UserResponseWrapper,
 )
 from app.error_handlers import InvalidUsage
 from app.extensions import db
-from app.utils.validate_password import validate_strong_password
-
-
-auth_blp = Blueprint(
-    "auth",
-    "auth",
-    url_prefix="/api/auth",
-    description="User registration, login, and token refresh",
-)
+from app.models import User
+from app.utils.validations import validate_strong_password
+from app.utils.blueprints import auth_blp
 
 
 @auth_blp.route("/register", methods=["POST"])
 @auth_blp.arguments(UserAuthSchema, location="json")
 @auth_blp.response(201, UserResponseWrapper)
 def register(validated_data):
-    """Register a new user and return user data with access tokens."""
+    """Register a new user and return user data."""
     email = validated_data["email"].lower()
     password = validated_data["password"]
-
-    if not email or "@" not in email:
-        raise InvalidUsage(
-            message="Please provide a valid email address.", status_code=400
-        )
 
     try:
         validate_strong_password(password)
     except ValidationError as err:
-        raise InvalidUsage(message=err, status_code=400)
-
-    current_app.logger.info("Attempting registration for email=%s", email)
+        message = (
+            "; ".join(err.messages) if hasattr(err, "messages") else str(err)
+        )
+        current_app.logger.warning(
+            "Password strength validation failed for email=%s: %s",
+            email,
+            message,
+        )
+        raise InvalidUsage(message=message, status_code=400)
 
     if User.query.filter_by(email=email).first():
         current_app.logger.warning(
-            "Attempt to register already-existing email=%s",
+            "Registration attempt with existing email=%s",
             email,
         )
         raise InvalidUsage(message="Email already registered", status_code=409)
@@ -77,9 +71,12 @@ def register(validated_data):
         db.session.commit()
     except IntegrityError as e:
         db.session.rollback()
-        if isinstance(e.orig, UniqueViolation):
-            current_app.logger.info(
-                "Registration unique constraint violation for email=%s", email
+        pgcode = getattr(
+            getattr(e.orig, "pgcode", None), "__str__", lambda: None
+        )()
+        if pgcode == errorcodes.UNIQUE_VIOLATION:
+            current_app.logger.warning(
+                "Registration unique constraint violated for email=%s", email
             )
             raise InvalidUsage(
                 message="Email already registered", status_code=409
@@ -93,6 +90,9 @@ def register(validated_data):
                 message="Email already registered", status_code=409
             )
 
+        current_app.logger.error(
+            "Database error creating user for email=%s: %s", email, str(e)
+        )
         raise InvalidUsage(message="Registration failed", status_code=500)
 
     current_app.logger.info(
@@ -103,7 +103,7 @@ def register(validated_data):
 
     return {
         "status": "success",
-        "message": "user registered successfully.",
+        "message": "User registered successfully.",
         "data": new_user,
     }
 
@@ -111,7 +111,7 @@ def register(validated_data):
 @auth_blp.route("/login", methods=["POST"])
 @auth_blp.arguments(UserAuthSchema, location="json")
 @auth_blp.response(
-    200, TokenResponseWrapper, description="Return access & refresh tokens"
+    200, AccessTokenWrapper, description="Return access & refresh tokens"
 )
 def login(validated_data):
     """Login a user and return access and refresh tokens."""
@@ -142,7 +142,7 @@ def login(validated_data):
 
     return {
         "status": "success",
-        "message": "login successful.",
+        "message": "Login successful.",
         "data": {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -151,7 +151,7 @@ def login(validated_data):
 
 
 @auth_blp.route("/refresh", methods=["POST"])
-@auth_blp.response(200, TokenResponseWrapper)
+@auth_blp.response(200, RefreshTokenWrapper)
 @auth_blp.doc(security=[{"BearerAuth": []}])
 @jwt_required(refresh=True)
 def refresh():
@@ -163,8 +163,10 @@ def refresh():
     new_token = create_access_token(identity=current_user_id)
     return {
         "status": "success",
-        "message": "User profile fetched successfully.",
-        "data": {"access_token": new_token},
+        "message": "Access token refreshed successfully.",
+        "data": {
+            "access_token": new_token,
+        },
     }
 
 

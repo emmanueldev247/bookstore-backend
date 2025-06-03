@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
-from app.utils.validate_password import validate_strong_password
+from app.utils.validations import validate_strong_password
 from app.orders.models import CartItem
 
 
