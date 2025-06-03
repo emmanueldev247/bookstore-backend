@@ -49,6 +49,7 @@ class Book(db.Model):
     stock = Column(Integer, default=0)
     publication_date = Column(Date)
     category_id = Column(Integer, ForeignKey("categories.id"))
+    summary = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(

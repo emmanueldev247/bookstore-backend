@@ -31,6 +31,7 @@ class BookDataSchema(Schema):
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     category = fields.Nested(CategorySchema, dump_only=True)
+    summary = fields.String(dump_only=True, allow_none=True)
 
 
 class BookDataResponseWrapper(StandardResponseSchema):

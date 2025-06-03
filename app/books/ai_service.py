@@ -81,8 +81,6 @@ def generate_summary(book):
             status_code=502,
         )
 
-    current_app.logger.info(f"Cohere response: {response}")
-
     # 5) Extract text
     try:
         assistant_parts = response.message.content

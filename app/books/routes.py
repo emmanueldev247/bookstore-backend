@@ -26,6 +26,43 @@ from app.models import Book, Category, Review
 from app.utils.blueprints import books_blp, auth_blp
 
 
+@books_blp.route("/categories", methods=["GET"])
+@books_blp.response(200, CategoriesListResponseWrapper)
+@auth_blp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def list_categories():
+    """List all book categories."""
+    user_id = get_jwt_identity()
+    current_app.logger.info(
+        "User (user_id=%s) requested list of categories", user_id
+    )
+
+    try:
+        categories = Category.query.order_by(Category.name).all()
+        current_app.logger.info("Retrieved %d categories", len(categories))
+        return {
+            "status": "success",
+            "message": "Categories retrieved successfully.",
+            "data": categories,
+        }
+    except SQLAlchemyError as db_err:
+        current_app.logger.error(
+            "Database error while listing categories: %s", str(db_err)
+        )
+        raise InvalidUsage(
+            "Failed to retrieve categories due to a database error.",
+            status_code=500,
+        )
+    except Exception as e:
+        current_app.logger.error(
+            "Unexpected error in list_categories: %s", str(e)
+        )
+        raise InvalidUsage(
+            "An unexpected error occurred while retrieving categories.",
+            status_code=500,
+        )
+
+
 @books_blp.route("/", methods=["POST"])
 @books_blp.arguments(BookDataSchema, location="json")
 @books_blp.response(201, BookDataResponseWrapper)
@@ -248,6 +285,146 @@ def get_book(book_id):
         raise InvalidUsage("An unexpected error occurred.", status_code=500)
 
 
+@books_blp.route("/<int:book_id>", methods=["PATCH"])
+@books_blp.arguments(BookDataSchema(partial=True), location="json")
+@books_blp.response(200, BookDataResponseWrapper)
+@books_blp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+@admin_required
+def update_book(validated_data, book_id):
+    """Update a new book [Admin only]."""
+    admin_id = get_jwt_identity()
+    current_app.logger.info(
+        "Admin (user_id=%s) requested update for book_id=%s with data: %s",
+        admin_id,
+        book_id,
+        validated_data,
+    )
+
+    try:
+        # 1) Fetch book manually, return JSON 404 if missing
+        book = Book.query.get(book_id)
+        if not book:
+            current_app.logger.warning(
+                "Book not found when attempting update: book_id=%s", book_id
+            )
+            raise InvalidUsage("Book not found.", status_code=404)
+
+        # 2) Record original description to detect change
+        original_title = book.title
+        original_author = book.author
+        original_description = book.description
+
+        # 3) Apply all provided fields
+        for field, value in validated_data.items():
+            setattr(book, field, value)
+
+        # 4) If author, title, or description changed, clear summary cache
+        if (
+            "author" in validated_data
+            and validated_data["author"] != original_author
+        ):
+            book.summary = None
+
+            current_app.logger.info(
+                "Cleared summary cache for book_id=%s due to author change.",
+                book_id,
+            )
+
+        if (
+            "title" in validated_data
+            and validated_data["title"] != original_title
+        ):
+            book.summary = None
+            current_app.logger.info(
+                "Cleared summary cache for book_id=%s due to title change.",
+                book_id,
+            )
+
+        if (
+            "description" in validated_data
+            and validated_data["description"] != original_description
+        ):
+            book.summary = None
+            current_app.logger.info(
+                "Cleared summary cache for book_id=%s "
+                "due to description change.",
+                book_id,
+            )
+
+        # 5) Commit changes
+        db.session.commit()
+
+        current_app.logger.info(
+            "Book updated successfully: book_id=%s by admin user_id=%s",
+            book_id,
+            admin_id,
+        )
+
+        # 6) Return wrapped response
+        return {
+            "status": "success",
+            "message": "Book updated successfully.",
+            "data": book,
+        }
+
+    except IntegrityError as ie:
+        db.session.rollback()
+        orig = getattr(ie, "orig", None)
+        msg = str(orig) if orig else str(ie)
+
+        # Example: if ISBN unique constraint violated
+        if "unique" in msg.lower():
+            current_app.logger.warning(
+                "Unique constraint violation on update for book_id=%s: %s",
+                book_id,
+                msg,
+            )
+            raise InvalidUsage(
+                "Update failed: a book with that unique field already exists.",
+                status_code=400,
+            )
+
+        # Other integrity issues
+        current_app.logger.error(
+            "Integrity error updating book_id=%s: %s", book_id, msg
+        )
+        raise InvalidUsage(
+            "Update failed due to invalid data.",
+            status_code=400,
+        )
+
+    except SQLAlchemyError as db_err:
+        db.session.rollback()
+        current_app.logger.error(
+            "Database error updating book_id=%s by admin user_id=%s: %s",
+            book_id,
+            admin_id,
+            str(db_err),
+        )
+        raise InvalidUsage(
+            "Failed to update book due to a database error.",
+            status_code=500,
+        )
+
+    except InvalidUsage:
+        raise
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(
+            "Unexpected error in update_book for "
+            "book_id=%s by admin user_id=%s: %s",
+            book_id,
+            admin_id,
+            str(e),
+        )
+        raise InvalidUsage(
+            "An unexpected error occurred while updating the book.",
+            status_code=500,
+        )
+
+
 @books_blp.route("/<int:book_id>", methods=["DELETE"])
 @auth_blp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
@@ -416,11 +593,27 @@ def get_book_summary(book_id):
             )
             raise InvalidUsage("Book not found.", status_code=404)
 
-        # 2) Generate summary via Cohere
+        # 2) If summary exists, return from cache
+        if book.summary:
+            current_app.logger.info(
+                "Returning cached summary for book_id=%s", book_id
+            )
+            return {
+                "status": "success",
+                "message": "Summary returned from cache.",
+                "data": {
+                    "book_id": book.id,
+                    "summary": book.summary,
+                },
+            }
+
+        # 3) Generate summary via Cohere
         current_app.logger.info(
             "Generating summary for book_id=%s via Cohere", book_id
         )
         summary_text = generate_summary(book)
+        book.summary = summary_text
+        db.session.commit()
 
         current_app.logger.info(
             "Successfully generated summary for book_id=%s", book_id
@@ -435,7 +628,6 @@ def get_book_summary(book_id):
         }
 
     except InvalidUsage:
-        # Re‐raise 404 or any custom error from generate_summary()
         raise
 
     except SQLAlchemyError as db_err:
@@ -626,42 +818,5 @@ def list_reviews(book_id):
         )
         raise InvalidUsage(
             "An unexpected error occurred while retrieving reviews.",
-            status_code=500,
-        )
-
-
-@books_blp.route("/categories", methods=["GET"])
-@books_blp.response(200, CategoriesListResponseWrapper)
-@auth_blp.doc(security=[{"BearerAuth": []}])
-@jwt_required()
-def list_categories():
-    """Return all book categories."""
-    user_id = get_jwt_identity()
-    current_app.logger.info(
-        "User (user_id=%s) requested list of categories", user_id
-    )
-
-    try:
-        categories = Category.query.order_by(Category.name).all()
-        current_app.logger.info("Retrieved %d categories", len(categories))
-        return {
-            "status": "success",
-            "message": "Categories retrieved successfully.",
-            "data": categories,
-        }
-    except SQLAlchemyError as db_err:
-        current_app.logger.error(
-            "Database error while listing categories: %s", str(db_err)
-        )
-        raise InvalidUsage(
-            "Failed to retrieve categories due to a database error.",
-            status_code=500,
-        )
-    except Exception as e:
-        current_app.logger.error(
-            "Unexpected error in list_categories: %s", str(e)
-        )
-        raise InvalidUsage(
-            "An unexpected error occurred while retrieving categories.",
             status_code=500,
         )
