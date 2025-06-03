@@ -1,5 +1,6 @@
 """Define configuration classes for different environments."""
 import os
+from datetime import timedelta
 
 
 class Config:
@@ -18,6 +19,8 @@ class Config:
     # Flask/Extension settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "default_secret_key")
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "default_jwt_secret_key")
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)  # 1 hour access token
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=1)  # 1 day refresh token
 
     SQLALCHEMY_DATABASE_URI: str = os.getenv(
         "DATABASE_URL",
@@ -35,7 +38,7 @@ class Config:
     API_TITLE: str = "Bookstore Backend API"
     API_VERSION: str = "1.0"
     OPENAPI_VERSION: str = "3.0.2"
-    OPENAPI_URL_PREFIX: str = "/docs"
+    OPENAPI_URL_PREFIX: str = "/api"
     OPENAPI_SWAGGER_UI_PATH: str = "/docs"
     OPENAPI_SWAGGER_UI_URL: str = (
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"

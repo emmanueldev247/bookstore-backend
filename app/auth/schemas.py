@@ -1,21 +1,12 @@
 """Marshmallow schemas for user authentication and serialisation."""
 
-from typing import Any, Union
+from marshmallow import Schema, fields
 
-from marshmallow import Schema, ValidationError, fields, validates
-
-from app.auth.utils import validate_strong_password
+from app.utils.common_schema import StandardResponseSchema
 
 
-class UserRegistrationSchema(Schema):
-    """Marshmallow schema for validating user registration input."""
-
-    email = fields.Email(required=True)
-    password = fields.String(required=True, validate=validate_strong_password)
-
-
-class UserLoginSchema(Schema):
-    """Marshmallow schema for validating user login input."""
+class UserAuthSchema(Schema):
+    """Marshmallow schema for validating user auth input."""
 
     email = fields.Email(required=True)
     password = fields.String(required=True)
@@ -32,31 +23,20 @@ class UserResponseSchema(Schema):
     created_at = fields.DateTime()
 
 
-class UserUpdateSchema(Schema):
-    """Marshmallow schema for validating user update input."""
+class UserResponseWrapper(StandardResponseSchema):
+    """Schema for wrapping user response data."""
 
-    email = fields.Email(required=False)
-    is_active = fields.Boolean(required=False)
-    is_admin = fields.Boolean(required=False)
-    is_superadmin = fields.Boolean(required=False)
-
-    @validates("is_superadmin")
-    def validate_is_superadmin(self, value: Union[bool, Any]) -> None:
-        """Validate the 'is_superadmin' field."""
-        if not isinstance(value, bool):
-            raise ValidationError("Invalid value for is_superadmin.")
-
-        # guard against updating self to superadmin
-        if value and not self.context.get("is_superadmin", False):
-            raise ValidationError(
-                "Cannot elevate to superadmin without proper permissions."
-            )
+    data = fields.Nested(UserResponseSchema)
 
 
-class UserListSchema(Schema):
-    """Marshmallow schema for paginated lists of users."""
+class TokenSchema(Schema):
+    """Schema for serializing refresh tokens."""
 
-    items = fields.List(fields.Nested(UserResponseSchema))
-    total = fields.Int()
-    page = fields.Int()
-    pages = fields.Int()
+    access_token = fields.Str(required=True)
+    refresh_token = fields.Str(required=False)
+
+
+class TokenResponseWrapper(StandardResponseSchema):
+    """Schema for wrapping token response data."""
+
+    data = fields.Nested(TokenSchema)

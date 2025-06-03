@@ -4,8 +4,8 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
 from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.auth.utils import validate_strong_password
 from app.extensions import db
+from app.utils.validate_password import validate_strong_password
 from app.orders.models import CartItem
 
 
@@ -16,7 +16,7 @@ class User(db.Model):
 
     id = Column(Integer, primary_key=True)
     email = Column(String(120), unique=True, nullable=False)
-    password_hash = Column(String(128), nullable=False)
+    password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     is_superadmin = Column(Boolean, default=False)

@@ -41,16 +41,11 @@ class InvalidUsage(Exception):
         self.payload = payload
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert exception details to a dictionary for JSON response.
-
-        Returns:
-            Dict[str, Any]: A dictionary containing error details,
-            including the message and any specified payload.
-        """
-        rv: Dict[str, Any] = dict(self.payload or {})
-        rv["message"] = str(self)
-        return rv
+        """Convert the exception to a dictionary for JSON serialization."""
+        return {
+            "error": str(self),
+            "status": "error",
+        }
 
 
 def register_error_handlers(app: Flask) -> None:
@@ -84,34 +79,27 @@ def register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(HTTPException)
     def handle_http_exception(e: HTTPException) -> Tuple[Response, int]:
-        """
-        Handle HTTPException errors (e.g., 404, 405).
-
-        Returns a JSON response with the error description and status code.
-
-        Args:
-            e (HTTPException): The caught HTTPException instance.
-
-        Returns:
-            Tuple[Response, int]: A Flask JSON response with the error
-            description and the HTTP status code.
-        """
-        return jsonify({"message": e.description}), e.code
+        """Handle HTTPException errors (e.g., 404, 405)."""
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "error": e.description,
+                }
+            ),
+            e.code,
+        )
 
     @app.errorhandler(Exception)
     def handle_general_exception(e: Exception) -> Tuple[Response, int]:
-        """
-        Handle uncaught exceptions not handled by other handlers.
-
-        Logs the exception and returns a generic "Internal Server Error" JSON
-        response with a 500 status code.
-
-        Args:
-            e (Exception): The unhandled exception instance.
-
-        Returns:
-            Tuple[Response, int]: A Flask JSON response with a generic
-            error message and a 500 status code.
-        """
+        """Handle uncaught exceptions not handled by other handlers."""
         app.logger.exception(e)
-        return jsonify({"message": "Internal Server Error"}), 500
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "error": "Internal Server Error",
+                }
+            ),
+            500,
+        )
