@@ -6,3 +6,4 @@ __pycache__/
 .flaskenv
 instance/
 stash/
+seed.py
