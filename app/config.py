@@ -80,3 +80,20 @@ class ProductionConfig(Config):
 
     DEBUG: bool = False
     ENV: str = "production"
+
+
+class InventoryConfig(Config):
+    """Configuration that only requires DATABASE_URL."""
+
+    def __init__(self):
+        """Initialize InventoryConfig and check for required variables."""
+        required_vars = {
+            "DATABASE_URL": self.SQLALCHEMY_DATABASE_URI,
+        }
+        missing = [k for k, v in required_vars.items() if not v]
+        if missing:
+            raise InvalidUsage(
+                message="Missing required environment variables: "
+                f"{', '.join(missing)}",
+                status_code=500,
+            )
