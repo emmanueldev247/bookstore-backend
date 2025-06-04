@@ -4,7 +4,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask
+from flask import Flask, render_template
 
 from app.error_handlers import register_error_handlers
 from app.extensions import api, cors, db, jwt, migrate, socketio
@@ -12,7 +12,10 @@ from app.extensions import api, cors, db, jwt, migrate, socketio
 
 def create_app() -> Flask:
     """Create and return a Flask application instance."""
-    app: Flask = Flask(__name__)
+    base_dir: str = os.path.abspath(os.path.dirname(__file__))
+    template_folder: str = os.path.join(base_dir, "templates")
+
+    app = Flask(__name__, template_folder=template_folder)
 
     config_name = os.getenv("FLASK_ENV", "production").lower()
     print(f"Configuring app for {config_name} environment")
@@ -49,13 +52,26 @@ def create_app() -> Flask:
     from app.health.routes import health_bp
     from app.orders.routes import orders_blp
 
-    # Register blueprints
+    # Register health check blueprint
     app.register_blueprint(health_bp, url_prefix="/api/health")
 
+    # Register the API spec route
+    app.add_url_rule("/api/spec", endpoint="spec", view_func=api.spec.to_dict)
+
+    # Register API blueprints
     api.register_blueprint(auth_blp)
     api.register_blueprint(books_blp)
     api.register_blueprint(cart_blp)
     api.register_blueprint(orders_blp)
+
+    # Register WebSocket event handlers
+    from app.websocket.events import OrderNamespace
+
+    OrderNamespace.register(socketio)
+
+    @app.route("/")
+    def index():
+        return render_template("index.html")
 
     return app
 
