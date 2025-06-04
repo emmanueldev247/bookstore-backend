@@ -10,6 +10,7 @@ from app.error_handlers import InvalidUsage
 from app.extensions import db
 from app.models import Order, OrderItem, Book, CartItem
 from app.orders.enums import OrderStatus
+from app.orders.services import publish_order_event
 from app.orders.schemas import (
     CartListResponseWrapper,
     SimpleMessageSchema,
@@ -524,7 +525,7 @@ class OrdersResource(MethodView):
             db.session.add(new_order)
             db.session.flush()  # get new_order.id
 
-            # 4) Create each OrderItem and reduce Book.stock
+            # 4) Create each OrderItem (no stock update)
             for item_data in order_items_data:
                 oi = OrderItem(
                     order_id=new_order.id,
@@ -534,10 +535,11 @@ class OrdersResource(MethodView):
                 )
                 db.session.add(oi)
 
+                #  testing rabbit async
                 # Reduce stock in the Book table
-                Book.query.filter_by(id=item_data["book_id"]).update(
-                    {"stock": Book.stock - item_data["quantity"]}
-                )
+                # Book.query.filter_by(id=item_data["book_id"]).update(
+                #     {"stock": Book.stock - item_data["quantity"]}
+                # )
 
             # 5) Clear the user's cart
             deleted_count = (
@@ -546,6 +548,8 @@ class OrdersResource(MethodView):
                 .delete(synchronize_session=False)
             )
 
+            # 6) Commit the entire transaction
+            #     (Order + OrderItems + CartItem deletions)
             db.session.commit()
             current_app.logger.info(
                 "Order placed successfully: order_id=%s for "
@@ -555,7 +559,7 @@ class OrdersResource(MethodView):
                 deleted_count,
             )
 
-            # 6) Reload the order with its items for serialization
+            # 7) Reload the order with its items for serialization
             order = Order.query.options(
                 db.joinedload(Order.items).joinedload(OrderItem.book)
             ).get(new_order.id)
@@ -809,6 +813,118 @@ class OrderCancelResource(MethodView):
             raise InvalidUsage(
                 message="An unexpected error occurred "
                 "while cancelling the order.",
+                status_code=500,
+            )
+
+
+@orders_blp.route("/<int:order_id>/pay", methods=["POST"])
+class OrderPaymentResource(MethodView):
+    """Simulate payment for a pending order."""
+
+    @orders_blp.response(200, OrderResponseWrapper)
+    @protected
+    def post(self, order_id):
+        """Confirm payment for a pending order."""
+        user_id = get_jwt_identity()
+        current_app.logger.info(
+            "User (user_id=%s) requested payment for order_id=%s",
+            user_id,
+            order_id,
+        )
+
+        try:
+            # 1) Fetch the order and verify ownership
+            order = Order.query.filter_by(id=order_id, user_id=user_id).first()
+            if not order:
+                current_app.logger.warning(
+                    "Order not found or not owned by user_id=%s: order_id=%s",
+                    user_id,
+                    order_id,
+                )
+                raise InvalidUsage("Order not found.", status_code=404)
+
+            # 2) Ensure the order is still PENDING
+            if order.status != OrderStatus.PENDING:
+                current_app.logger.warning(
+                    "Attempt to pay non‐pending order_id=%s "
+                    "(current status=%s)",
+                    order_id,
+                    order.status.value,
+                )
+                raise InvalidUsage(
+                    message="Cannot pay an order with status "
+                    f"'{order.status.value}'.",
+                    status_code=400,
+                )
+
+            # 3) Update status → PAID
+            order.status = OrderStatus.PAID
+            db.session.commit()
+            current_app.logger.info(
+                "Order status updated to PAID: order_id=%s by user_id=%s",
+                order_id,
+                user_id,
+            )
+
+            # 4) Publish RabbitMQ event "order.paid"
+            try:
+                items_for_message = [
+                    {"book_id": oi.book_id, "quantity": oi.quantity}
+                    for oi in order.items
+                ]
+                publish_order_event(
+                    order_id=order.id,
+                    user_id=order.user_id,
+                    items=items_for_message,
+                    status=OrderStatus.PAID,
+                )
+            except Exception as pub_err:
+                current_app.logger.error(
+                    "RabbitMQ publish failed for order_id=%s: %s",
+                    order_id,
+                    str(pub_err),
+                )
+
+            # 5) Reload the order with its items to return
+            updated_order = Order.query.options(
+                db.joinedload(Order.items).joinedload(OrderItem.book)
+            ).get(order_id)
+
+            return {
+                "status": "success",
+                "message": "Payment confirmed; order status set to PAID.",
+                "data": updated_order,
+            }
+
+        except SQLAlchemyError as db_err:
+            db.session.rollback()
+            current_app.logger.error(
+                "Database error when paying order_id=%s for user_id=%s: %s",
+                order_id,
+                user_id,
+                str(db_err),
+            )
+            raise InvalidUsage(
+                message="Failed to confirm payment due to a database error.",
+                status_code=500,
+            )
+
+        except InvalidUsage:
+            # Re‐raise known 404 or 400
+            raise
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(
+                "Unexpected error in pay_order "
+                "for order_id=%s by user_id=%s: %s",
+                order_id,
+                user_id,
+                str(e),
+            )
+            raise InvalidUsage(
+                message="An unexpected error occurred "
+                "while processing payment.",
                 status_code=500,
             )
 

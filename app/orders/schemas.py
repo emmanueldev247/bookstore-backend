@@ -65,6 +65,11 @@ class OrderItemReadSchema(Schema):
     book_id = fields.Int(required=True)
     quantity = fields.Int(required=True)
     price_unit = fields.Float(required=True)
+    author = fields.String(
+        dump_only=True,
+        attribute="book.author",
+        description="The author of the book for this order item",
+    )
     title = fields.String(
         dump_only=True,
         attribute="book.title",
