@@ -4,6 +4,7 @@ from sqlalchemy import (
     Column,
     Integer,
     Float,
+    Boolean,
     DateTime,
     func,
     Enum as SQLEnum,
@@ -33,6 +34,8 @@ class Order(db.Model):
         nullable=False,
         default=OrderStatus.PENDING,
     )
+    inventory_processed = Column(Boolean, nullable=False, default=False)
+    inventory_restocked = Column(Boolean, nullable=False, default=False)
     total_amount = Column(Float, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=db.func.now())
 
