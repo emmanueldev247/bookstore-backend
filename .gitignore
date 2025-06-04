@@ -7,3 +7,7 @@ __pycache__/
 instance/
 stash/
 seed.py
+logs/
+tests/
+pytest_cache/
+pytest.ini
