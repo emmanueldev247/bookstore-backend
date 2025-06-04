@@ -2,7 +2,6 @@
 
 from marshmallow import Schema, fields
 from app.utils.common_schema import StandardResponseSchema
-
 from app.utils.validations import validate_rating
 from app.utils.blueprints import books_blp
 
@@ -16,6 +15,26 @@ class CategorySchema(Schema):
 
 class BookDataSchema(Schema):
     """Marshmallow schema for validating a Book."""
+
+    id = fields.Int(dump_only=True)
+    title = fields.String(required=True)
+    author = fields.String(required=True)
+    isbn = fields.String(required=True)
+    price = fields.Float(required=True)
+    stock = fields.Integer(required=True)
+    description = fields.String()
+    publication_date = fields.Date()
+    category_id = fields.Integer(load_only=True, required=True)
+    is_active = fields.Bool(dump_only=True)
+    average_rating = fields.Float(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    category = fields.Nested(CategorySchema, dump_only=True)
+    summary = fields.String(dump_only=True, allow_none=True)
+
+
+class BookDetailsSchema(Schema):
+    """Copy to avoid Multiple schemas resolved to the name BookData."""
 
     id = fields.Int(dump_only=True)
     title = fields.String(required=True)

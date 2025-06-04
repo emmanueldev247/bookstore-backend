@@ -15,6 +15,7 @@ from app.books.schemas import (
     BookSummaryResponseWrapper,
     PaginatedBooksResponseWrapper,
     BookDataSchema,
+    BookDetailsSchema,
     BookDataResponseWrapper,
     ReviewCreateSchema,
     ReviewsListResponseWrapper,
@@ -299,7 +300,7 @@ class BooksResource(MethodView):
                 "An unexpected error occurred.", status_code=500
             )
 
-    @books_blp.arguments(BookDataSchema(partial=True), location="json")
+    @books_blp.arguments(BookDetailsSchema(partial=True), location="json")
     @books_blp.response(200, BookDataResponseWrapper)
     @admin_required
     @protected
