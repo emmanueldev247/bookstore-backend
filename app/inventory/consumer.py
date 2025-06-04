@@ -246,7 +246,8 @@ def start_consumer():
 
     app.logger.info(
         "Inventory consumer started. Waiting for "
-        "'order.paid' and 'order.cancelled' messages..."
+        "'order.paid', 'order.cancelled' and "
+        "'order.refunded' events..."
     )
 
     channel.basic_qos(prefetch_count=1)
