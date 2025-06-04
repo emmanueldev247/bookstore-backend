@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity
 from flask.views import MethodView
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from app import socketio
 from app.auth.permissions import admin_required, protected
 from app.error_handlers import InvalidUsage
 from app.extensions import db
@@ -547,6 +548,13 @@ class OrdersResource(MethodView):
                 .filter_by(user_id=user_id)
                 .delete(synchronize_session=False)
             )
+            if deleted_count > 0:
+                current_app.logger.info(
+                    "Cleared %d items from cart after "
+                    "placing order for user_id=%s",
+                    deleted_count,
+                    user_id,
+                )
 
             # 6) Commit the entire transaction
             #     (Order + OrderItems + CartItem deletions)
@@ -557,6 +565,23 @@ class OrdersResource(MethodView):
                 new_order.id,
                 user_id,
                 deleted_count,
+            )
+
+            # 7) Notify via WebSocket
+            socketio.emit(
+                "order_status_update ",
+                {
+                    "order_id": new_order.id,
+                    "status": OrderStatus.PENDING.value,
+                    "message": "Your order has been placed and is pending.",
+                },
+                room=f"user_{user_id}",
+                namespace="/api/ws/orders",
+            )
+            current_app.logger.info(
+                "WebSocket event emitted for order_id=%s with status %s",
+                new_order.id,
+                OrderStatus.PENDING.value,
             )
 
             # 7) Reload the order with its items for serialization
@@ -772,6 +797,7 @@ class OrderCancelResource(MethodView):
 
             # 3) Perform cancellation
             order.status = OrderStatus.CANCELLED
+            db.session.add(order)
             db.session.commit()
             current_app.logger.info(
                 "Order cancelled successfully: order_id=%s by user_id=%s",
@@ -779,11 +805,73 @@ class OrderCancelResource(MethodView):
                 user_id,
             )
 
+            # 4) Publish RabbitMQ event "order.cancelled"
+            if order.inventory_processed and not order.inventory_restocked:
+                items_for_message = [
+                    {"book_id": oi.book_id, "quantity": oi.quantity}
+                    for oi in order.items
+                ]
+                try:
+                    publish_order_event(
+                        order_id=order.id,
+                        user_id=order.user_id,
+                        items=items_for_message,
+                        status=OrderStatus.CANCELLED,
+                    )
+                    current_app.logger.info(
+                        "Published 'order.cancelled' event for order_id=%s",
+                        order_id,
+                    )
+                except Exception as pub_err:
+                    current_app.logger.error(
+                        "RabbitMQ publish failed for "
+                        "cancellation of order_id=%s: %s",
+                        order_id,
+                        str(pub_err),
+                    )
+
+            # 5) Notify via WebSocket
+            socketio.emit(
+                "order_status_update",
+                {
+                    "order_id": order.id,
+                    "status": order.status.value,
+                    "message": "Your order has been cancelled successfully.",
+                },
+                room=f"user_{user_id}",
+                namespace="/api/ws/orders",
+            )
+            current_app.logger.info(
+                "WebSocket notification sent for order_id=%s to user_id=%s",
+                order_id,
+                user_id,
+            )
+
+            # 6) Return success response
+            current_app.logger.info(
+                "Order cancellation processed: order_id=%s for user_id=%s",
+                order_id,
+                user_id,
+            )
             return {
                 "status": "success",
                 "message": "Order cancelled successfully.",
                 "data": None,
             }
+
+        except IntegrityError as ie:
+            db.session.rollback()
+            msg = str(getattr(ie, "orig", ie))
+            current_app.logger.error(
+                "Integrity error cancelling order_id=%s for user_id=%s: %s",
+                order_id,
+                user_id,
+                msg,
+            )
+            raise InvalidUsage(
+                message="Failed to cancel order due to invalid data.",
+                status_code=400,
+            )
 
         except SQLAlchemyError as db_err:
             db.session.rollback()
@@ -885,11 +973,33 @@ class OrderPaymentResource(MethodView):
                     str(pub_err),
                 )
 
-            # 5) Reload the order with its items to return
+            # 5) Notify via WebSocket
+            socketio.emit(
+                "order_status_update",
+                {
+                    "order_id": order.id,
+                    "status": order.status.value,
+                    "message": "Your order has been paid successfully.",
+                },
+                room=f"user_{user_id}",
+                namespace="/api/ws/orders",
+            )
+            current_app.logger.info(
+                "WebSocket notification sent for order_id=%s to user_id=%s",
+                order_id,
+                user_id,
+            )
+
+            # 6) Reload the order with its items to return
             updated_order = Order.query.options(
                 db.joinedload(Order.items).joinedload(OrderItem.book)
             ).get(order_id)
 
+            current_app.logger.info(
+                "Payment confirmed for order_id=%s by user_id=%s",
+                order_id,
+                user_id,
+            )
             return {
                 "status": "success",
                 "message": "Payment confirmed; order status set to PAID.",
@@ -953,7 +1063,8 @@ class OrderStatusUpdateResource(MethodView):
             order = Order.query.get(order_id)
             if not order:
                 current_app.logger.warning(
-                    "Order not found for status " "update: order_id=%s",
+                    "Order not found for status ",
+                    "update: order_id=%s",
                     order_id,
                 )
                 raise InvalidUsage(
@@ -981,6 +1092,51 @@ class OrderStatusUpdateResource(MethodView):
                 "Order status updated successfully: order_id=%s to '%s'",
                 order_id,
                 new_status_value,
+            )
+
+            # 4) Publish RabbitMQ event
+            if new_status_value in (
+                OrderStatus.CANCELLED.value,
+                OrderStatus.REFUNDED.value,
+            ):
+                try:
+                    items_for_message = [
+                        {"book_id": oi.book_id, "quantity": oi.quantity}
+                        for oi in order.items
+                    ]
+                    publish_order_event(
+                        order_id=order.id,
+                        user_id=order.user_id,
+                        items=items_for_message,
+                        status=order.status,
+                    )
+                    current_app.logger.info(
+                        "Published 'order.status_updated' "
+                        "event for order_id=%s",
+                        order_id,
+                    )
+                except Exception as pub_err:
+                    current_app.logger.error(
+                        "RabbitMQ publish failed for order_id=%s: %s",
+                        order_id,
+                        str(pub_err),
+                    )
+
+            # 5) Notify via WebSocket
+            socketio.emit(
+                "order_status_update",
+                {
+                    "order_id": order.id,
+                    "status": order.status.value,
+                    "message": "Order has been updated successfully.",
+                },
+                room=f"user_{order.user_id}",
+                namespace="/api/ws/orders",
+            )
+            current_app.logger.info(
+                "WebSocket notification sent for order_id=%s to user_id=%s",
+                order_id,
+                order.user_id,
             )
 
             # 4) Return updated order
