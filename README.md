@@ -1,74 +1,362 @@
 # 📖 Bookstore Backend
 
-A robust RESTful API backend and real-time system for a bookstore. This backend handles authentication, book management, reviews, cart management, order processing and WebSocket-powered live notifications.
+A full‐featured, Dockerized Flask backend for a bookstore, complete with:
 
-## 🌐 Features
+- **JWT Authentication** (login, registration, refresh, user profile)
+- **Book Management** (CRUD for admins; public listings for users)
+- **AI‐Powered Summaries** (via OpenAI / Cohere API)
+- **Category & Reviews** (users can submit and view reviews)
+- **Cart & Order Processing** (cart persistence, order placement, status tracking)
+- **Async Inventory** (RabbitMQ‐driven stock updates, decoupled workers)
+- **Real‐Time Notifications** (Flask‐SocketIO + RabbitMQ for live order updates)
+- **OpenAPI Docs** (powered by Flask‐Smorest & Marshmallow schemas)
+- **Docker & Docker Compose** (dev/prod setups under `infra/`)
 
-* JWT-based Authentication (Login, Registration, Refresh, User Profile)
-* Book Listings, Categories, and Reviews
-* AI-Powered Book Summarisation (via Cohere API)
-* Admin-only Book Management (CRUD)
-* Cart System & Order Processing
-* Order Status Enum (PENDING, PAID, SHIPPED, DELIVERED, CANCELLED, REFUNDED)
-* Async Inventory Management (via RabbitMQ & Pika)
-* Real-Time Order Notifications via WebSocket
-* Login-enabled frontend SPA for real-time order subscription
-* Flask-Smorest & Marshmallow for OpenAPI Docs
-
----
-
-## 🧱 Setup Instructions
-
-### ⚖️ Requirements
-
-* Python 3.8+
-* PostgreSQL
-* RabbitMQ (AMQP)
-
-### ⚡️ Installation
-
-```bash
-# Clone the project
-$ git clone https://github.com/emmanueldev247/bookstore-backend.git
-$ cd bookstore-backend
-
-# Setup virtual environment
-$ python3 -m venv venv-bs
-$ source venv-bs/bin/activate
-
-# Install dependencies
-$ pip install -r requirements.txt
-
-# Check RabbitMQ (should say connection succeeded)
-$ nc -zv localhost 5672
-
-# Setup PostgreSQL, Redis (follow .env or config.py for connection info)
-```
+Feel free to explore the source code, experiment locally, or deploy to production using the provided Docker configurations.
 
 ---
 
-## 💡 Project Structure
+## 📄 Table of Contents
+
+1. [Features](#features)
+2. [Directory Structure](#directory-structure)
+3. [Quick Start (Local Development)](#quick-start-local-development)
+4. [Production Deployment](#production-deployment)
+5. [API Reference](#api-reference)
+   - [Authentication Endpoints](#authentication-endpoints)
+   - [Books Endpoints](#books-endpoints)
+   - [Orders Endpoints](#orders-endpoints)
+6. [Database Seeding](#database-seeding)
+7. [WebSocket & Messaging](#websocket--messaging)
+8. [Running Tests](#running-tests)
+9. [Code Quality with Pre-commit](#pre-commit)
+10. [License](#license)
+11. [Design Decisions & AI Integration](#design-decisions--ai-integration)
+
+---
+
+# Features
+
+- **OpenAPI / Swagger** documentation via Flask‐Smorest (see `/api/spec` or `/api/docs` in dev).
+- **JWT‐based Authentication**
+  - Registration, Login, Token Refresh
+  - Protected “me” endpoint to fetch user info
+- **Book Management**
+  - Admins can create, update, soft‐delete, and un‐delete books
+  - Public can view active books, categories, and summaries
+- **AI‐Powered Summaries**
+  - On `GET /api/books/{book_id}/summary`, the system either returns a cached summary or uses OpenAI/Cohere to generate one
+- **Category & Reviews**
+  - Books grouped into categories (e.g. Fiction, Non‐Fiction)
+  - Authenticated users can post and fetch reviews per book
+- **Cart & Order Flow**
+  1. Users add books to a cart (stored in DB).
+  2. On `/api/orders`, an order is created with `OrderItems`.
+  3. Order status transitions: `PENDING → PAID → SHIPPED → DELIVERED → CANCELLED / REFUNDED`.
+  4. After order creation, RabbitMQ messages decouple stock updates and notifications.
+- **Async Inventory Processing**
+  - A background consumer (`app/inventory/consumer.py`) listens to an `order_created` queue, decrements stock, emits WebSocket events, and updates order status.
+- **Real‐Time WebSocket Notifications**
+  - Using Flask‐SocketIO (with `message_queue=RabbitMQ`) so that multiple workers can broadcast updates.
+  - Clients (frontend SPA) can subscribe to `order_update` events.
+- **Docker + Docker Compose**
+  - Separate `infra/dev/` and `infra/prod/` setups for local development vs. production deployment.
+  - Pre‐configured Dockerfiles, Compose files, and entrypoint scripts to bring up Postgres, RabbitMQ, web, and worker containers.
+- **Idempotent Seeding**
+  - `seed_all.py` creates an admin user, default categories, and books with randomized unique ISBNs—safe to run on every startup.
+- **Testing**
+  - Pytest‐based tests under `tests/` (covering auth, books, orders, inventory).
+
+---
+
+# Directory Structure
 
 ```plaintext
-app/
-├── auth/              # User registration, login, JWT token refresh, permissions
-├── books/             # Book models, AI summary, category & review logic
-├── orders/            # Order models, cart, order placing and tracking
-├── inventory/         # Background consumer (RabbitMQ async queue)
-├── websocket/         # Real-time events (Socket.IO)
-├── static/            # CSS/JS for frontend SPA
-├── templates/         # HTML templates
-├── utils/             # Common utils, validators, blueprint registration
-├── health/            # Health check routes
-├── models/            # Base model declarations (e.g. User, Book)
-├── config.py          # App settings/config
-├── extensions.py      # Extensions: JWT, DB, Marshmallow, Celery, etc.
-├── error_handlers.py  # Global error handling
+bookstore-backend/
+├── README.md
+├── DESIGN_DECISIONS.md        ← Detailed design & AI integration (link)
+├── run.py                     ← Entrypoint for local dev (SocketIO)
+├── seed.py                  ← Idempotent seeder (admin, categories, books)
+├── requirements.txt
+├── pyproject.toml
+├── migrations/
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+├── app/                       # Flask application package
+│   ├── __init__.py            # App factory, load_dotenv, eventlet patch
+│   ├── config.py              # Config classes (Dev / Prod / Testing)
+│   ├── extensions.py          # JWT, DB, SocketIO, Marshmallow, CORS, Migrate
+│   ├── error_handlers.py      # Global error handlers
+│   ├── health/
+│   │   └── routes.py          # /api/health
+│   ├── auth/
+│   │   ├── models.py          # User
+│   │   ├── routes.py          # /api/auth
+│   │   ├── schemas.py         # Marshmallow schemas
+│   │   └── permissions.py     # Custom permissions
+│   ├── books/
+│   │   ├── models.py          # Book, Category, Review, Summary
+│   │   ├── routes.py          # /api/books endpoints
+│   │   ├── schemas.py         # Marshmallow schemas
+│   │   └── ai_service.py      # OpenAI / Cohere integration
+│   ├── orders/
+│   │   ├── enums.py           # OrderStatus enum
+│   │   ├── models.py          # Order, OrderItem ...
+│   │   ├── routes.py          # /api/orders & /api/cart endpoints
+│   │   ├── schemas.py
+│   │   └── services.py        # Business logic (cart → order)
+│   ├── inventory/
+│   │   ├── consumer.py        # RabbitMQ consumer to update stock & emit events
+│   │   └── __init__.py
+│   ├── websocket/
+│   │   ├── events.py          # SocketIO event namespace (OrderNamespace)
+│   │   └── __init__.py
+│   ├── static/                # Frontend SPA static assets (CSS, JS)
+│   ├── templates/             # SPA HTML (index.html)
+│   ├── utils/
+│   │   ├── blueprints.py      # Helper to define blueprints
+│   │   ├── common_schema.py   # Shared Marshmallow fields
+│   │   └── validations.py     # Custom validators
+│   └── models/                # All models imported here
+│       └── __init__.py
+├── infra/
+│   ├── dev/                   # Local development Docker setup
+│   │   ├── Dockerfile
+│   │   ├── docker-compose.yml
+│   │   ├── .env
+│   │   └── .flaskenv
+│   ├── prod/                  # Production Docker setup
+│   │   ├── Dockerfile
+│   │   ├── docker-compose.yml
+│   │   └── .env
+│   ├── scripts/               # Shared entrypoint scripts
+│   │   ├── entrypoint.web.sh
+│   │   └── entrypoint.worker.sh
+│   └── services/               # Tools used in Docker
+│       ├── postgres/
+│       │   ├── Dockerfile
+│       │   └── .postgres     # Postgres env (used only by prod compose)
+│       └── rabbitmq/
+│           ├── Dockerfile
+│           └── .rabbitmq     # RabbitMQ env (used only by prod compose)
+├── logs/                  # Runtime logs (e.g. bookstore.log) (not on repo)
+```
+
+# Quick Start (Local Development)
+
+
+These instructions assume you have **Docker** & **Docker Compose** installed locally, along with **Python 3.8+** if you want to run outside Docker.
+
+---
+
+### 1. Clone & Enter the Repo
+
+```bash
+git clone https://github.com/emmanueldev247/bookstore-backend.git
+cd bookstore-backend
 ```
 
 ---
 
-## 🔒 Authentication API
+### 2. Inspect (or edit) `infra/dev/.env` and `infra/dev/.flaskenv`
+
+#### `infra/dev/.env` (development environment variables):
+
+```ini
+SECRET_KEY=***********************************
+JWT_SECRET_KEY=********************************
+COHERE_API_KEY==********************************
+DATABASE_URL=postgresql://<username>:<password>@<host>:<port>/<database_name>
+RABBITMQ_URL=amqp://<username>:<password>@<host>:<port>/<virtual_host>
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=ChangeMe123!
+```
+
+> `DATABASE_URL` refers to `postgres:5432` because the Compose service is named `postgres`.
+> `RABBITMQ_URL` uses `rabbitmq:5672` similarly.
+
+#### `infra/dev/.flaskenv`:
+
+```ini
+FLASK_APP=run.py
+FLASK_ENV=development
+FLASK_DEBUG=1
+```
+
+> This ensures `run.py` is used for `flask run`, and the code runs in development mode.
+
+> You can adjust any variables (e.g. `COHERE_API_KEY`, `OPENAI_API_KEY`) as needed.
+
+---
+
+### 3. Build & Bring Up Containers
+
+```bash
+cd infra/dev
+docker compose up --build
+```
+
+This will:
+
+1. **Build the following images:**
+
+    - `bookstore_postgres_dev_image` (Postgres 16)
+    - `bookstore_rabbitmq_dev_image` (RabbitMQ 3-management)
+    - `bookstore_web_dev_image` (Flask + dependencies)
+    - `bookstore_worker_dev_image` (same base as web)
+
+2. **Start 4 containers:**
+
+    - **bookstore_postgres_dev**
+        - DB initialized with `POSTGRES_DB=bookstore_db`
+        - Named volume `pgdata_dev` holds data files
+
+    - **bookstore_rabbitmq_dev**
+        - Management UI on port **15672**
+        - Named volume `rabbitdata_dev` for MQTT messages
+
+    - **bookstore_web_dev**
+        - Waits for Postgres & RabbitMQ
+        - Runs `flask db upgrade` → applies migrations
+        - Runs `python seed_all.py` → seeds admin, categories, books (with random ISBNs)
+        - Starts Flask dev server on `0.0.0.0:5000` with hot-reload enabled
+
+    - **bookstore_worker_dev**
+        - Waits for RabbitMQ
+        - Runs `python -u -m app/inventory/consumer.py` to listen for `order_created` messages
+
+### 📜 Logs should show messages like:
+
+```
+[postgres]
+[rabbitmq]
+[web] Waiting for Postgres...
+[web] Postgres is ready ✅
+[web] Waiting for RabbitMQ...
+[web] RabbitMQ is ready ✅
+[web] Running migrations...
+[web] Running combined seeder...
+[seed_all] Created admin user: admin@example.com
+[seed_all] Category Fiction already exists → skipping.
+[seed_all] Created book: 'The Great Gatsby' (ISBN: 4829301923847) in category 'Fiction'
+…
+[web] Starting Flask dev server...
+* Serving Flask app "app"
+* Environment: development
+* Debug mode: on
+* Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
+[worker] Waiting for RabbitMQ...
+[worker] RabbitMQ is ready ✅
+[worker] Starting inventory consumer...
+```
+
+---
+
+### 4. 🌐 **Browse:**
+
+- OpenAPI/Swagger UI:
+  [http://localhost:5000/api/docs](http://localhost:5000/api/docs)
+  (or `/api/spec`)
+
+- Health Check:
+  [http://localhost:5000/api/health](http://localhost:5000/api/health)
+
+- You can use Postman or `curl` to test **auth**, **books**, **orders**, etc.
+
+---
+
+### 5. 🛠 RabbitMQ Management (dev only)
+
+- Visit: [http://localhost:15672](http://localhost:15672)
+- Login: `guest / guest`
+- View queues, exchanges, messages
+
+---
+
+### 6. 🧠 Database Access (dev only)
+
+If you want to inspect Postgres, connect with any PostgreSQL client:
+
+- Host: `localhost`
+- Port: `5432`
+- Username: `debug`
+- Password: `debug`
+- Database: `bookstore_db`
+
+# Production Deployment
+
+Below is a high‐level guide to bring up a production‐style environment. In production, we bake code into the image (no volume mounts), ensure `always up` restart policies, and run **Gunicorn** instead of the Flask dev server.
+
+---
+
+### 1. 📁 Environment Variables
+
+Place your production environment variables in `infra/prod/.env`:
+
+```ini
+FLASK_ENV=production
+SECRET_KEY=**********************************
+JWT_SECRET_KEY=******************************
+DATABASE_URL=postgresql://<username>:<password>@<host>:<port>/<database_name>
+RABBITMQ_URL=amqp://<username>:<password>@<host>:<port>/<virtual_host>
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=ChangeMe123!
+```
+
+---
+
+### 2. Build & Run Production Stack
+
+```bash
+cd infra/prod
+docker compose up --build -d
+```
+
+This will:
+
+- Build `bookstore_postgres_prod_image`, `bookstore_rabbitmq_prod_image`, `bookstore_web_prod_image`, and `bookstore_worker_prod_image`.
+- Start containers with `restart: unless-stopped`.
+- `bookstore_web_prod` container runs:
+  ```bash
+  gunicorn -k eventlet -w 2 -b 0.0.0.0:5000 app:create_app()
+  ```
+  (Two eventlet workers, RabbitMQ used for SocketIO bridging.)
+- `bookstore_worker_prod` container runs inventory consumer.
+
+---
+
+### 3. Verify Deployment
+
+```bash
+docker ps
+docker logs bookstore_web_prod
+docker logs bookstore_worker_prod
+```
+
+Visit:
+[http://localhost:5000/api/health](http://localhost:5000/api/health)
+
+> If you expose RabbitMQ ports (`15672`), you can log into the management UI.
+> Otherwise, it remains internal.
+
+---
+
+### Networking
+
+In production, we may want to front Gunicorn with an **Nginx** or **Traefik** reverse proxy (TLS, static assets, caching, etc.).
+That’s outside the scope of this minimal setup.
+
+---
+
+# API Reference
+
+A summary of major endpoints. For request/response schemas, refer to live OpenAPI docs at `/api/docs`.
+
+---
+
+## Authentication Endpoints
 
 | Method | Endpoint             | Access        | Description               |
 | ------ | -------------------- | --------------| --------------------------|
@@ -79,7 +367,7 @@ app/
 
 ---
 
-## 📚 Books API
+## Books Endpoints
 
 | Method | Endpoint                       | Access        | Description              |
 | ------ | ------------------------------ | ------------- | ------------------------ |
@@ -96,7 +384,7 @@ app/
 
 ---
 
-## 📦 Order API
+## Orders Endpoints
 
 | Method | Endpoint                        | Access        | Description            |
 | ------ | ------------------------------- | ------------- | ---------------------- |
@@ -107,97 +395,112 @@ app/
 | POST   | `/api/orders/{order_id}/pay`    | Authenticated | View specific order    |
 | PATCH  | `/api/orders/{order_id}/status` | Admin         | View specific order    |
 
-### Order Flow
-
-1. User adds books to cart (`CartItem` model).
-2. User places order:
-
-   * Cart items fetched
-   * Books validated
-   * `Order` and `OrderItems` created
-   * Cart cleared
-3. Order status starts as `PENDING`
-4. Async inventory/notification tasks via RabbitMQ/SocketIO
-
 ---
 
-## 🚚 Inventory (Async Queue)
+#  Database Seeding
 
-* **app/inventory/consumer.py** listens for RabbitMQ events (e.g. stock management)
-* Uses RabbitMQ (port 5672, tested via `nc`)
+All seeding is handled by `seed.py` (called after migrations).
 
----
+### ✅ Admin User
 
-## 🛡️ WebSocket (WIP)
+Creates a default admin user if none exists.
 
-* **websocket/** contains support for real-time events
-* Placeholder for future events like order updates, admin notifications, etc.
+### 📚 Categories & Books
 
----
+- Adds default categories if missing.
+- For each book, generates a unique 13-digit ISBN. (Just for filling up the spot to avoid DB errors)
+- If a book with the same title exists, it’s skipped (idempotent).
 
-##  SPA – Single Page Application
+### ▶️ When to Run
 
-* SPA frontend served from `/app/templates/`
-   * `index.html`
-* Static assets in `/app/static/`
-   * `css/styles.css`
-   * `js/app.js`
-   * `js/socket.io.min.js`
-* Authenticates using JWT
-* Live order ID subscription & log stream
-* Demo use: Connect, Subscribe, Watch Live Events
-
----
-
-## 🎓 Technologies Used
-
-* Flask + Flask-Smorest (REST API with OpenAPI)
-* Flask-JWT-Extended (JWT authentication)
-* Marshmallow (Serialization/Validation)
-* Cohere API (Book summarisation)
-* PostgreSQL (Relational DB)
-* SQLAlchemy (ORM)
-* RabbitMQ (Async processing)
-* Docker & Docker Compose (WIP structure in `infra/`)
-* Socket.IO + JavaScript (Frontend WebSocket SPA)
-* HTML & CSS
-
----
-
-## 🚧 To Do / Future Features
-
-* [ ] Payment integration (Stripe/Paystack)
-* [ ] Order status updates via admin panel
-* [ ] Admin dashboard frontend
-* [ ] Role-based access control improvements
-* [ ] WebSocket real-time updates
-* [ ] Unit tests and CI
-
----
-
-## ✅ Contributing
-
-Feel free to fork and raise PRs. Feedback and improvements welcome.
-
----
-
-## 🚀 Quick Dev Commands
+The entrypoint runs this at every startup:
 
 ```bash
-# Run migrations
-flask db init
-flask db migrate
 flask db upgrade
-
-# Run consumer (if implemented)
-python -m app.inventory.consumer
-
-# Check RabbitMQ running
-nc -zv localhost 5672
-
-# Run app
-flask run
+python seed.py
 ```
+
+It’s safe to run multiple times due to idempotency checks.
+
+---
+
+# WebSocket & Messaging
+
+### `app/inventory/consumer.py`
+
+- Connects to RabbitMQ (`order_created` queue).
+- On each message:
+  - Decrements & Increments stock.
+  - Updates order status.
+  - Emits WebSocket event to user room.
+
+### `app/websocket/events.py`
+
+- Defines `OrderNamespace`.
+- Subscribes clients to rooms (named after their user ID).
+
+### Front-end SPA (JS + HTML)
+
+- Connects to Socket.IO at `http://localhost:5000`.
+- Authenticates via JWT.
+- Listens to real-time order updates.
+
+---
+
+# Running Tests
+_(Not yet implemented)_
+
+<!-- ```bash
+# Optional: activate venv
+source venv-bs/bin/activate
+
+# Run tests with coverage
+pytest --maxfail=1 --disable-warnings -q
+```
+
+Tests cover:
+
+- **Auth**: registration, login, refresh, protection
+- **Books**: CRUD, summaries, reviews
+- **Orders**: place, cancel, pay, transitions
+- **Consumer**: simulated RabbitMQ messages
+- **WebSocket**: mocked Socket.IO events -->
+
+---
+
+# Code Quality with Pre-commit
+
+I use [`pre-commit`](https://pre-commit.com) to enforce code quality and consistency before each commit. The hooks are configured to automatically run the following:
+### 🛠️ Hooks in Use
+
+- **General cleanup & checks** (via `pre-commit-hooks`):
+  - `trailing-whitespace`: Removes trailing whitespace.
+  - `end-of-file-fixer`: Ensures a newline at the end of each file.
+  - `check-added-large-files`: Prevents committing large files by mistake.
+  - `check-json`, `check-toml`, `check-xml`, `check-yaml`: Validates file syntax for common data formats.
+  - `debug-statements`: Blocks commits containing `print()` or `pdb`.
+  - `check-builtin-literals`, `check-case-conflict`, `check-docstring-first`, `detect-private-key`: Additional safety and style checks.
+
+- **`black`** (Python code formatter):
+  - Enforces consistent code formatting using `black`, with a line length of 79 characters.
+
+- **`flake8`** (Python linter):
+  - Identifies linting issues, with extensions like:
+    - `flake8-bugbear` for common bugs and design issues.
+    - `flake8-docstrings` to enforce docstring standards.
+    - `flake8-comprehensions` for list/set/dict comprehension improvements.
+  - Excludes some folders/files such as `migrations/`, `tests/`, and `seed_all.py`.
+
+### 🚀 Setup Instructions
+
+To get started with the hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Now, every time I commit, the configured checks will automatically run. This ensures the codebase stays clean, consistent, and adheres to best practices across formatting, documentation, and logic.
 
 ---
 
@@ -206,10 +509,24 @@ flask run
 **Emmanuel Ademola** <br>
 _Software Engineer_ <br>
 [Portfolio](https://emmanueldev247.publicvm.com/) <br>
-[GitHub: `@emmanueldev247`](https://github.com/emmanueldev247/)
+[LinkedIn](https://linkedin.com/in/emmanueldev247/)
+
+---
+---
+
+# License
+
+MIT License.
 
 ---
 
-## 📄 License
+# Design Decisions & AI Integration 📘
 
-MIT
+See [`DESIGN_DECISIONS.md`](./DESIGN_DECISIONS.md) for details on:
+
+- Monolith vs Microservices
+- Flask-Smorest, RabbitMQ, event queues
+- OpenAI vs Cohere API
+- Prompt design, caching
+- WebSocket strategy & eventlet
+- Debugging, extending the system
