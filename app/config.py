@@ -2,6 +2,7 @@
 import os
 from datetime import timedelta
 from app.error_handlers import InvalidUsage
+from typing import List
 
 
 class Config:
@@ -11,24 +12,23 @@ class Config:
     Any setting here is common to all environments unless overridden below.
     """
 
-    # Core flags (default to False/production if not explicitly set)
     DEBUG: bool = os.getenv("DEBUG", "False").lower() in ["true", "1"]
     TESTING: bool = os.getenv("TESTING", "False").lower() in ["true", "1"]
     ENV: str = os.getenv("ENV", "production")
 
-    # Flask/Extension settings
     SECRET_KEY: str = os.getenv("SECRET_KEY")
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
-    JWT_ACCESS_TOKEN_EXPIRES: str = timedelta(hours=3)
-    JWT_REFRESH_TOKEN_EXPIRES: str = timedelta(days=1)
+    JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(hours=3)
+    JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=1)
+    JWT_TOKEN_LOCATION: List[str] = ["headers", "query_string"]
+    JWT_QUERY_STRING_NAME: str = "token"
 
     SQLALCHEMY_DATABASE_URI: str = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
 
-    SOCKETIO_MESSAGE_QUEUE = os.getenv("RABBITMQ_URL")
-    RABBITMQ_URL = SOCKETIO_MESSAGE_QUEUE
+    SOCKETIO_MESSAGE_QUEUE: str = os.getenv("RABBITMQ_URL")
+    RABBITMQ_URL: str = SOCKETIO_MESSAGE_QUEUE
 
-    # OpenAPI Docs
     API_TITLE: str = "Bookstore Backend API"
     API_VERSION: str = "1.0"
     OPENAPI_VERSION: str = "3.0.2"
@@ -82,18 +82,27 @@ class ProductionConfig(Config):
     ENV: str = "production"
 
 
-class InventoryConfig(Config):
-    """Configuration that only requires DATABASE_URL."""
+class InventoryConfig:
+    """Configuration for Inventory service."""
 
-    def __init__(self):
-        """Initialize InventoryConfig and check for required variables."""
+    @staticmethod
+    def init_app(app):
+        """Set config from environment and validate."""
+        app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+        app.config["RABBITMQ_URL"] = os.environ.get("RABBITMQ_URL")
+        app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+        app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY")
+
+        # Validate all are present
         required_vars = {
-            "DATABASE_URL": self.SQLALCHEMY_DATABASE_URI,
+            "DATABASE_URL": app.config["SQLALCHEMY_DATABASE_URI"],
+            "RABBITMQ_URL": app.config["RABBITMQ_URL"],
+            "SECRET_KEY": app.config["SECRET_KEY"],
+            "JWT_SECRET_KEY": app.config["JWT_SECRET_KEY"],
         }
         missing = [k for k, v in required_vars.items() if not v]
         if missing:
             raise InvalidUsage(
-                message="Missing required environment variables: "
-                f"{', '.join(missing)}",
+                f"Missing required env variables: {', '.join(missing)}",
                 status_code=500,
             )
