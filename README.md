@@ -30,10 +30,10 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 6. [Database Seeding](#database-seeding)
 7. [WebSocket & Messaging](#websocket--messaging)
 8. [Running Tests](#running-tests)
-9. [Code Quality with Pre-commit](#code-quality-with-pre--commit)
+9. [Code Quality](#code-quality)
 10. [Author](#author)
 11. [License](#license)
-12. [Design Decisions & AI Integration](#design-decisions--ai-integration)
+12. [Design Decisions](#design-decisions)
 
 ---
 
@@ -470,9 +470,9 @@ Tests cover:
 
 ---
 
-# Code Quality with Pre-commit
+# Code Quality
 
-I use [`pre-commit`](https://pre-commit.com) to enforce code quality and consistency before each commit. The hooks are configured to automatically run the following:
+I used [`pre-commit`](https://pre-commit.com) to enforce code quality and consistency before each commit. The hooks are configured to automatically run the following:
 ### 🛠️ Hooks in Use
 
 - **General cleanup & checks** (via `pre-commit-hooks`):
@@ -506,7 +506,7 @@ Now, every time I commit, the configured checks will automatically run. This ens
 
 ---
 
-## Author
+# Author
 
 **Emmanuel Ademola** <br>
 _Software Engineer_ <br>
@@ -522,7 +522,7 @@ MIT License.
 
 ---
 
-# Design Decisions & AI Integration 📘
+# Design Decisions & AI Integration
 
 See [`DESIGN_DECISIONS.md`](./DESIGN_DECISIONS.md) for details on:
 
