@@ -1,0 +1,58 @@
+services:
+  postgres:
+    build:
+      context: ../services/postgres
+      dockerfile: Dockerfile
+    image: bookstore_postgres_prod_image
+    container_name: bookstore_postgres_prod
+    restart: unless-stopped
+    env_file:
+      - .postgres
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+
+  rabbitmq:
+    build:
+      context: ../services/rabbitmq
+      dockerfile: Dockerfile
+    image: bookstore_rabbitmq_prod_image
+    container_name: bookstore_rabbitmq_prod
+    restart: unless-stopped
+    env_file:
+      - .rabbitmq
+    volumes:
+      - rabbitdata_prod:/var/lib/rabbitmq
+
+  web:
+    build:
+      context: ../../
+      dockerfile: infra/prod/Dockerfile
+    image: bookstore_web_prod_image
+    container_name: bookstore_web_prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - rabbitmq
+    ports:
+      - "5000:5000"
+    entrypoint: ["/app/infra/scripts/entrypoint.web.sh"]
+
+  worker:
+    build:
+      context: ../../
+      dockerfile: infra/prod/Dockerfile
+    image: bookstore_worker_prod_image
+    container_name: bookstore_worker_prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - rabbitmq
+    entrypoint: ["/app/infra/scripts/entrypoint.worker.sh"]
+
+volumes:
+  pgdata_prod:
+  rabbitdata_prod:

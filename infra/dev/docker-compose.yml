@@ -1,0 +1,68 @@
+services:
+  web:
+    build:
+      context: ../../
+      dockerfile: infra/dev/Dockerfile
+    image: bookstore_web_dev_image
+    container_name: bookstore_web_dev
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+      - .flaskenv
+    volumes:
+      - ../../:/app:z
+    depends_on:
+      - postgres
+      - rabbitmq
+    entrypoint: ["/app/infra/scripts/entrypoint.web.sh"]
+
+
+  worker:
+    build:
+      context: ../../
+      dockerfile: infra/dev/Dockerfile
+    image: bookstore_worker_dev_image
+    container_name: bookstore_worker_dev
+    env_file:
+      - .env
+    volumes:
+      - ../../:/app:z
+    depends_on:
+      - postgres
+      - rabbitmq
+    entrypoint: /app/infra/scripts/entrypoint.worker.sh
+
+  postgres:
+    build:
+      context: ../services/postgres
+      dockerfile: Dockerfile
+    image: bookstore_postgres_dev_image
+    container_name: bookstore_postgres_dev
+    environment:
+      POSTGRES_USER: debug
+      POSTGRES_PASSWORD: debug
+      POSTGRES_DB: bookstore_db
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    build:
+      context: ../services/rabbitmq
+      dockerfile: Dockerfile
+    image: bookstore_rabbitmq_dev_image
+    container_name: bookstore_rabbitmq_dev
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitdata_dev:/var/lib/rabbitmq
+
+volumes:
+  pgdata_dev:
+  rabbitdata_dev:
