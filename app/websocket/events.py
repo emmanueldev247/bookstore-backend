@@ -27,27 +27,22 @@ class OrderNamespace:
                     user_id,
                     room,
                 )
+
                 emit("connected", {"msg": f"Joined room {room}"}, room=room)
+
             except Exception as e:
-                # Invalid or missing JWT; reject connection
                 current_app.logger.warning(
                     "WebSocket connection rejected: invalid JWT; error=%s",
                     str(e),
                 )
+                # Reject the connection by raising a ConnectionRefusedError
                 raise ConnectionRefusedError("Authentication failed")
 
         # DISCONNECT
         @socketio.on("disconnect", namespace=cls.namespace)
         def on_disconnect():
             """Disconnect client."""
-            try:
-                verify_jwt_in_request()
-                user_id = get_jwt_identity()
-                current_app.logger.info(
-                    "WebSocket disconnected: user_id=%s", user_id
-                )
-            except Exception:
-                current_app.logger.info("WebSocket disconnected: unknown user")
+            current_app.logger.info("WebSocket disconnected")
 
         # SUBSCRIBE TO ORDER STATUS
         @socketio.on("order_status_subscribe", namespace=cls.namespace)
@@ -101,6 +96,11 @@ class OrderNamespace:
                     return
 
                 room = f"order_{order_id}"
+                emit(
+                    "unsubscribed",
+                    {"msg": f"Unsubscribed from order {order_id}"},
+                    room=room,
+                )
                 leave_room(room)
                 current_app.logger.info(
                     "WebSocket: user_id=%s unsubscribed from "
@@ -108,11 +108,6 @@ class OrderNamespace:
                     user_id,
                     order_id,
                     room,
-                )
-                emit(
-                    "unsubscribed",
-                    {"msg": f"Unsubscribed from order {order_id}"},
-                    room=room,
                 )
             except Exception as e:
                 current_app.logger.error(
