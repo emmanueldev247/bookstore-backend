@@ -16,7 +16,7 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 
 ---
 
-## 📄 Table of Contents
+## Table of Contents
 
 0. [Table of Contents](#table-of-contents)
 1. [Features](#features)
@@ -32,8 +32,8 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 8. [Running Tests](#running-tests)
 9. [Code Quality](#code-quality)
 10. [Author](#author)
-11. [License](#license)
-12. [Design Decisions](#design-decisions)
+11. [Design Decisions](#design-decisions)
+12. [License](#license)
 
 ---
 
