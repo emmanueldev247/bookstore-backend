@@ -1,20 +1,19 @@
 # 📖 Bookstore Backend
 
-A fully-featured RESTful API backend for a bookstore. This backend handles user authentication, book listings, reviews, order processing, cart management, and real-time events.
+A robust RESTful API backend and real-time system for a bookstore. This backend handles authentication, book management, reviews, cart management, order processing and WebSocket-powered live notifications.
 
 ## 🌐 Features
 
 * JWT-based Authentication (Login, Registration, Refresh, User Profile)
-* Book Listings and Reviews
-* Category Management
-* Admin-only Book Management (CRUD)
-* Cart System
-* Order Processing and Tracking
-* Order Status Enum (Pending, Paid, Shipped, Cancelled, Refunded)
-* RabbitMQ Integration for Async Task Queue (via Inventory App)
+* Book Listings, Categories, and Reviews
 * AI-Powered Book Summarisation (via Cohere API)
-* WebSocket Event System Setup for Realtime Integrations
-* Flask-Smorest + Marshmallow for OpenAPI documentation
+* Admin-only Book Management (CRUD)
+* Cart System & Order Processing
+* Order Status Enum (PENDING, PAID, SHIPPED, DELIVERED, CANCELLED, REFUNDED)
+* Async Inventory Management (via RabbitMQ & Pika)
+* Real-Time Order Notifications via WebSocket
+* Login-enabled frontend SPA for real-time order subscription
+* Flask-Smorest & Marshmallow for OpenAPI Docs
 
 ---
 
@@ -24,7 +23,6 @@ A fully-featured RESTful API backend for a bookstore. This backend handles user 
 
 * Python 3.8+
 * PostgreSQL
-* Redis
 * RabbitMQ (AMQP)
 
 ### ⚡️ Installation
@@ -56,8 +54,10 @@ app/
 ├── auth/              # User registration, login, JWT token refresh, permissions
 ├── books/             # Book models, AI summary, category & review logic
 ├── orders/            # Order models, cart, order placing and tracking
-├── inventory/         # Background consumer (Celery-based)
-├── websocket/         # Placeholder for real-time events
+├── inventory/         # Background consumer (RabbitMQ async queue)
+├── websocket/         # Real-time events (Socket.IO)
+├── static/            # CSS/JS for frontend SPA
+├── templates/         # HTML templates
 ├── utils/             # Common utils, validators, blueprint registration
 ├── health/            # Health check routes
 ├── models/            # Base model declarations (e.g. User, Book)
@@ -70,12 +70,12 @@ app/
 
 ## 🔒 Authentication API
 
-| Method | Endpoint             | Description               |
-| ------ | -------------------- | ------------------------- |
-| POST   | `/api/auth/register` | Register new user         |
-| POST   | `/api/auth/login`    | Login user, return JWTs   |
-| POST   | `/api/auth/refresh`  | Refresh access token      |
-| GET    | `/api/auth/me`       | Get logged-in user's info |
+| Method | Endpoint             | Access        | Description               |
+| ------ | -------------------- | --------------| --------------------------|
+| POST   | `/api/auth/register` | Public        | Register new user         |
+| POST   | `/api/auth/login`    | Public        | Login user, return JWTs   |
+| POST   | `/api/auth/refresh`  | Authenticated | Refresh access token      |
+| GET    | `/api/auth/me`       | Authenticated | Get logged-in user's info |
 
 ---
 
@@ -83,26 +83,29 @@ app/
 
 | Method | Endpoint                       | Access        | Description              |
 | ------ | ------------------------------ | ------------- | ------------------------ |
-| GET    | `/api/books/categories`        | Public        | List book categories     |
+| GET    | `/api/books/categories`        | Authenticated | List book categories     |
 | POST   | `/api/books/`                  | Admin         | Add new book             |
-| GET    | `/api/books/`                  | Public        | List/filter books        |
-| GET    | `/api/books/{book_id}`         | Public        | View single book         |
+| GET    | `/api/books/`                  | Authenticated | List/filter books        |
+| GET    | `/api/books/{book_id}`         | Authenticated | View single book         |
 | PATCH  | `/api/books/{book_id}`         | Admin         | Update book              |
 | DELETE | `/api/books/{book_id}`         | Admin         | Soft delete              |
 | GET    | `/api/books/inactive`          | Admin         | View soft-deleted books  |
-| GET    | `/api/books/{book_id}/summary` | Public        | View/Generate AI summary |
+| GET    | `/api/books/{book_id}/summary` | Authenticated | View/Generate AI summary |
 | POST   | `/api/books/{book_id}/reviews` | Authenticated | Add review               |
-| GET    | `/api/books/{book_id}/reviews` | Public        | View reviews             |
+| GET    | `/api/books/{book_id}/reviews` | Authenticated | View reviews             |
 
 ---
 
 ## 📦 Order API
 
-| Method | Endpoint                 | Access        | Description            |
-| ------ | ------------------------ | ------------- | ---------------------- |
-| POST   | `/api/orders/`           | Authenticated | Place order using cart |
-| GET    | `/api/orders/`           | Authenticated | View all user orders   |
-| GET    | `/api/orders/{order_id}` | Authenticated | View specific order    |
+| Method | Endpoint                        | Access        | Description            |
+| ------ | ------------------------------- | ------------- | ---------------------- |
+| GET    | `/api/orders/`                  | Authenticated | View all user orders   |
+| POST   | `/api/orders/`                  | Authenticated | Place order using cart |
+| GET    | `/api/orders/{order_id}`        | Authenticated | View specific order    |
+| POST   | `/api/orders/{order_id}/cancel` | Authenticated | Cancel a PENDING order |
+| POST   | `/api/orders/{order_id}/pay`    | Authenticated | View specific order    |
+| PATCH  | `/api/orders/{order_id}/status` | Admin         | View specific order    |
 
 ### Order Flow
 
@@ -114,34 +117,50 @@ app/
    * `Order` and `OrderItems` created
    * Cart cleared
 3. Order status starts as `PENDING`
-4. Future enhancements may include webhook updates (e.g. payment success -> `PAID`)
+4. Async inventory/notification tasks via RabbitMQ/SocketIO
 
 ---
 
 ## 🚚 Inventory (Async Queue)
 
-* **inventory/consumer.py** listens for events (e.g. stock management, email notifications)
+* **app/inventory/consumer.py** listens for RabbitMQ events (e.g. stock management)
 * Uses RabbitMQ (port 5672, tested via `nc`)
-* Can be extended with Celery tasks
 
 ---
 
 ## 🛡️ WebSocket (WIP)
 
-* **websocket/** contains initial support for real-time events
+* **websocket/** contains support for real-time events
 * Placeholder for future events like order updates, admin notifications, etc.
+
+---
+
+##  SPA – Single Page Application
+
+* SPA frontend served from `/app/templates/`
+   * `index.html`
+* Static assets in `/app/static/`
+   * `css/styles.css`
+   * `js/app.js`
+   * `js/socket.io.min.js`
+* Authenticates using JWT
+* Live order ID subscription & log stream
+* Demo use: Connect, Subscribe, Watch Live Events
 
 ---
 
 ## 🎓 Technologies Used
 
-* Flask + Flask-Smorest (Blueprint-based REST API with OpenAPI)
-* SQLAlchemy (ORM)
-* Marshmallow (Serialization/Validation)
-* PostgreSQL (Relational DB)
-* RabbitMQ (Async processing)
-* Cohere API (Book summarisation)
+* Flask + Flask-Smorest (REST API with OpenAPI)
 * Flask-JWT-Extended (JWT authentication)
+* Marshmallow (Serialization/Validation)
+* Cohere API (Book summarisation)
+* PostgreSQL (Relational DB)
+* SQLAlchemy (ORM)
+* RabbitMQ (Async processing)
+* Docker & Docker Compose (WIP structure in `infra/`)
+* Socket.IO + JavaScript (Frontend WebSocket SPA)
+* HTML & CSS
 
 ---
 
@@ -165,32 +184,32 @@ Feel free to fork and raise PRs. Feedback and improvements welcome.
 ## 🚀 Quick Dev Commands
 
 ```bash
-# Run app
-flask run
-
 # Run migrations
 flask db init
 flask db migrate
 flask db upgrade
 
+# Run consumer (if implemented)
+python -m app.inventory.consumer
+
 # Check RabbitMQ running
 nc -zv localhost 5672
 
-# Run consumer (if implemented)
-celery -A app.inventory.consumer worker --loglevel=info
+# Run app
+flask run
 ```
 
 ---
 
 ## 👤 Author
 
-**Emmanuel Ademola**
-Backend Developer | MEDIA10 STUDIOS
-[Portfolio](https://emmanueldev247.publicvm.com/)
-GitHub: `@emmanueldev247`
+**Emmanuel Ademola** <br>
+_Software Engineer_ <br>
+[Portfolio](https://emmanueldev247.publicvm.com/) <br>
+[GitHub: `@emmanueldev247`](https://github.com/emmanueldev247/)
 
 ---
 
 ## 📄 License
 
-MIT - Use it freely, credit is appreciated.
+MIT
