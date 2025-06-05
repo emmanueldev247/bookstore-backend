@@ -14,8 +14,15 @@ def create_app() -> Flask:
     """Create and return a Flask application instance."""
     base_dir: str = os.path.abspath(os.path.dirname(__file__))
     template_folder: str = os.path.join(base_dir, "templates")
+    static_folder: str = os.path.join(base_dir, "static")
 
-    app = Flask(__name__, template_folder=template_folder)
+    # Create the Flask app instance
+    app: Flask = Flask(
+        __name__,
+        template_folder=template_folder,
+        static_folder=static_folder,
+        static_url_path="/assets",
+    )
 
     config_name = os.getenv("FLASK_ENV", "production").lower()
     print(f"Configuring app for {config_name} environment")
