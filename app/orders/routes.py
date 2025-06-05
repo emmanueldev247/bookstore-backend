@@ -1,6 +1,6 @@
 """Define REST endpoints for managing orders in the bookstore application."""
 
-from flask import current_app, request
+from flask import current_app
 from flask_jwt_extended import get_jwt_identity
 from flask.views import MethodView
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -137,6 +137,26 @@ class CartResource(MethodView):
             existing = CartItem.query.filter_by(
                 user_id=user_id, book_id=book_id
             ).first()
+
+            total_requested = quantity
+            if existing:
+                total_requested += existing.quantity
+
+            if total_requested > book.stock:
+                current_app.logger.warning(
+                    "Requested quantity (%s) exceeds "
+                    "available stock (%s) for book_id=%s",
+                    total_requested,
+                    book.stock,
+                    book_id,
+                )
+                raise InvalidUsage(
+                    message=f"Only {book.stock} copies available. You "
+                    f"already have {existing.quantity if existing else 0} "
+                    "in your cart.",
+                    status_code=400,
+                )
+
             if existing:
                 # Increase quantity
                 existing.quantity += quantity
@@ -248,6 +268,37 @@ class CartResource(MethodView):
                     message="Cart item not found.", status_code=404
                 )
 
+            total_requested = quantity
+            total_requested += cart_item.quantity
+
+            # Check if the book exists and has enough stock
+            book = Book.query.get(book_id)
+            if not book or not book.is_active:
+                current_app.logger.warning(
+                    "Book not found or inactive "
+                    "when adding to cart: book_id=%s",
+                    book_id,
+                )
+                raise InvalidUsage(
+                    message="Book not found.",
+                    status_code=404,
+                )
+
+            if total_requested > book.stock:
+                current_app.logger.warning(
+                    "Requested quantity (%s) exceeds "
+                    "available stock (%s) for book_id=%s",
+                    total_requested,
+                    book.stock,
+                    book_id,
+                )
+                raise InvalidUsage(
+                    message=f"Only {book.stock} copies available. You "
+                    f"already have {cart_item.quantity if cart_item else 0} "
+                    "in your cart.",
+                    status_code=400,
+                )
+
             # 2) Update the quantity
             cart_item.quantity = quantity
             db.session.commit()
@@ -304,13 +355,16 @@ class CartResource(MethodView):
                 status_code=500,
             )
 
-    @cart_blp.response(200, SimpleMessageSchema)
+
+@cart_blp.route("/<int:cart_item_id>", methods=["DELETE"])
+class CartItemResource(MethodView):
+    """Resource for deleting a specific cart item."""
+
+    @cart_blp.response(204)
     @protected
-    def delete(self):
+    def delete(self, cart_item_id):
         """Remove a book from the user's cart."""
         user_id = get_jwt_identity()
-        cart_item_id = request.args.get("cart_item_id", type=int)
-
         current_app.logger.info(
             "User (user_id=%s) attempting to delete cart_item_id=%s",
             user_id,
@@ -351,11 +405,7 @@ class CartResource(MethodView):
             current_app.logger.info(
                 "Cart item deleted successfully: cart_item_id=%s", cart_item_id
             )
-            return {
-                "status": "success",
-                "message": "Cart item removed successfully.",
-                "data": None,
-            }
+            return None
 
         except SQLAlchemyError as db_err:
             db.session.rollback()
@@ -391,7 +441,7 @@ class CartResource(MethodView):
 class CartClearResource(MethodView):
     """Resource for clearing the entire cart."""
 
-    @cart_blp.response(200, SimpleMessageSchema)
+    @cart_blp.response(204)
     @protected
     def delete(self):
         """Clear all items from the current user's cart."""
@@ -410,11 +460,8 @@ class CartClearResource(MethodView):
             current_app.logger.info(
                 "Cleared %d items from cart for user_id=%s", deleted, user_id
             )
-            return {
-                "status": "success",
-                "message": "Cart cleared successfully.",
-                "data": None,
-            }
+            return None
+
         except SQLAlchemyError as db_err:
             db.session.rollback()
             current_app.logger.error(
@@ -569,7 +616,7 @@ class OrdersResource(MethodView):
 
             # 7) Notify via WebSocket
             socketio.emit(
-                "order_status_update ",
+                "order_status_update",
                 {
                     "order_id": new_order.id,
                     "status": OrderStatus.PENDING.value,
@@ -979,7 +1026,7 @@ class OrderPaymentResource(MethodView):
                 {
                     "order_id": order.id,
                     "status": order.status.value,
-                    "message": "Your order has been paid successfully.",
+                    "message": "Your order has been paid for successfully.",
                 },
                 room=f"user_{user_id}",
                 namespace="/api/ws/orders",

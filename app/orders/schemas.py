@@ -29,7 +29,7 @@ class CartItemUpdateSchema(Schema):
 class CartItemReadSchema(Schema):
     """Schema for reading a cart item."""
 
-    cart_item_id = fields.Int(attribute="id", dump_only=True)
+    cart_item_id = fields.Int(dump_only=True)
     book_id = fields.Int(dump_only=True)
     title = fields.String(dump_only=True)
     author = fields.String(dump_only=True)
