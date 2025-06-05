@@ -2,7 +2,10 @@
 
 import json
 import logging
+import os
 import pika
+from dotenv import load_dotenv
+
 from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -10,13 +13,12 @@ from app.config import InventoryConfig
 from app.extensions import db
 from app.models import Book, Order
 
-from dotenv import load_dotenv
 
-
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+load_dotenv(dotenv_path=dotenv_path)
 
 app = Flask(__name__)
-app.config.from_object(InventoryConfig())
+InventoryConfig.init_app(app)
 
 with app.app_context():
     db.init_app(app)
