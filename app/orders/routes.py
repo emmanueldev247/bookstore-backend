@@ -1095,7 +1095,7 @@ class OrderStatusUpdateResource(MethodView):
     @admin_required
     @protected
     def patch(self, validated_data, order_id):
-        """Update the status of an order. Admin privileges required."""
+        """Update the status of an order [Admin-only]."""
         new_status_value = validated_data["status"]
 
         # Logging the attempt
