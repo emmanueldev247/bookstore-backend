@@ -114,6 +114,23 @@ button {
   flex: 1;
 }
 
+.api-docs-link {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+
+.api-docs-link a {
+  text-decoration: none;
+  color: #007bff;
+  font-weight: bold;
+  transition: color 0.3s;
+}
+
+.api-docs-link a:hover {
+  color: #0056b3;
+}
+
 /* ===== LOG AREA ===== */
 .log-heading {
   margin-top: 2rem;
