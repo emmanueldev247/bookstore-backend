@@ -35,7 +35,7 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 
 ---
 
-## 🌐 Features
+## Features
 
 - **OpenAPI / Swagger** documentation via Flask‐Smorest (see `/api/spec` or `/api/docs` in dev).
 - **JWT‐based Authentication**
@@ -343,14 +343,14 @@ Visit:
 
 ---
 
-### 🌐 Networking
+### Networking
 
 In production, we may want to front Gunicorn with an **Nginx** or **Traefik** reverse proxy (TLS, static assets, caching, etc.).
 That’s outside the scope of this minimal setup.
 
 ---
 
-## 🔍 API Reference
+## API Reference
 
 A summary of major endpoints. For request/response schemas, refer to live OpenAPI docs at `/api/docs`.
 
@@ -397,7 +397,7 @@ A summary of major endpoints. For request/response schemas, refer to live OpenAP
 
 ---
 
-## 🔄 Database Seeding
+##  Database Seeding
 
 All seeding is handled by `seed.py` (called after migrations).
 
@@ -424,7 +424,7 @@ It’s safe to run multiple times due to idempotency checks.
 
 ---
 
-# ⚙️ WebSocket & Messaging
+# WebSocket & Messaging
 
 ### `app/inventory/consumer.py`
 
