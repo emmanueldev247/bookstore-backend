@@ -1,18 +1,6 @@
 """This script is used to run the Flask application with SocketIO support."""
 
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-env = os.getenv("FLASK_ENV", "production")
-
-if env == "production":
-    import eventlet
-
-    eventlet.monkey_patch()
-
-from app import create_app, socketio  # noqa: E402
+from app import create_app, socketio
 
 
 app = create_app()
