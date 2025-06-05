@@ -29,7 +29,7 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 6. [Database Seeding](#database-seeding)
 7. [WebSocket & Messaging](#websocket--messaging)
 8. [Running Tests](#running-tests)
-9. [Contributing](#contributing)
+9. [Code Quality with Pre-commit](#pre-commit)
 10. [License](#license)
 11. [Design Decisions & AI Integration](#design-decisions--ai-integration)
 
@@ -285,30 +285,29 @@ If you want to inspect Postgres, connect with any PostgreSQL client:
 - Password: `debug`
 - Database: `bookstore_db`
 
-# 🚀 Production Deployment
+## Production Deployment
 
 Below is a high‐level guide to bring up a production‐style environment. In production, we bake code into the image (no volume mounts), ensure `always up` restart policies, and run **Gunicorn** instead of the Flask dev server.
 
 ---
 
-## 📁 Environment Variables
+### 1. 📁 Environment Variables
 
 Place your production environment variables in `infra/prod/.env`:
 
 ```ini
 FLASK_ENV=production
-SECRET_KEY=ab77ccd46f93661e00440fbff698588f9ea686edd7410a672d3417d8c6e1c6e4
-JWT_SECRET_KEY=edbe4c81408be0367b3825b9d0d7b546eb2db82ae51035703550b9101e8a1572
-DATABASE_URL=postgresql://debug:debug@postgres:5432/bookstore_db
-RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-COHERE_API_KEY=6kwEetHB6zyMCXbRtNC7YjvnUFiHSjkbekiBR8or
+SECRET_KEY=**********************************
+JWT_SECRET_KEY=******************************
+DATABASE_URL=postgresql://<username>:<password>@<host>:<port>/<database_name>
+RABBITMQ_URL=amqp://<username>:<password>@<host>:<port>/<virtual_host>
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=ChangeMe123!
 ```
 
 ---
 
-## 🔧 Build & Run Production Stack
+### 2. Build & Run Production Stack
 
 ```bash
 cd infra/prod
@@ -319,16 +318,16 @@ This will:
 
 - Build `bookstore_postgres_prod_image`, `bookstore_rabbitmq_prod_image`, `bookstore_web_prod_image`, and `bookstore_worker_prod_image`.
 - Start containers with `restart: unless-stopped`.
-- `web` container runs:
+- `bookstore_web_prod` container runs:
   ```bash
   gunicorn -k eventlet -w 2 -b 0.0.0.0:5000 app:create_app()
   ```
   (Two eventlet workers, RabbitMQ used for SocketIO bridging.)
-- `worker` container runs inventory consumer.
+- `bookstore_worker_prod` container runs inventory consumer.
 
 ---
 
-## ✅ Verify Deployment
+### 3. Verify Deployment
 
 ```bash
 docker ps
@@ -337,70 +336,70 @@ docker logs bookstore_worker_prod
 ```
 
 Visit:
-[http://<YOUR_PROD_HOST>:5000/api/health](http://<YOUR_PROD_HOST>:5000/api/health)
+[http://localhost:5000/api/health](http://localhost:5000/api/health)
 
 > If you expose RabbitMQ ports (`15672`), you can log into the management UI.
 > Otherwise, it remains internal.
 
 ---
 
-## 🌐 Networking
+### 🌐 Networking
 
-In production, you may want to front Gunicorn with an **Nginx** or **Traefik** reverse proxy (TLS, static assets, caching, etc.).
+In production, we may want to front Gunicorn with an **Nginx** or **Traefik** reverse proxy (TLS, static assets, caching, etc.).
 That’s outside the scope of this minimal setup.
 
 ---
 
-# 🔍 API Reference
+## 🔍 API Reference
 
 A summary of major endpoints. For request/response schemas, refer to live OpenAPI docs at `/api/docs`.
 
 ---
 
-## 🔐 Authentication Endpoints
+### 🔐 Authentication Endpoints
 
-| Method | Endpoint           | Access       | Description                               |
-|--------|--------------------|--------------|-------------------------------------------|
-| POST   | `/api/auth/register` | Public     | Register a new user.                      |
-| POST   | `/api/auth/login`    | Public     | Login and receive JWT tokens.            |
-| POST   | `/api/auth/refresh`  | Authenticated | Refresh access token.                    |
-| GET    | `/api/auth/me`       | Authenticated | Get current user profile.              |
-
----
-
-## 📚 Books Endpoints
-
-| Method | Endpoint                          | Access     | Description                                      |
-|--------|-----------------------------------|------------|--------------------------------------------------|
-| GET    | `/api/books/categories`          | Public     | List all book categories.                        |
-| POST   | `/api/books/`                    | Admin      | Create a new book.                               |
-| GET    | `/api/books/`                    | Public     | List/filter active books.                        |
-| GET    | `/api/books/{book_id}`           | Public     | Get a book’s details.                            |
-| PATCH  | `/api/books/{book_id}`           | Admin      | Update an existing book.                         |
-| DELETE | `/api/books/{book_id}`           | Admin      | Soft-delete a book.                              |
-| GET    | `/api/books/inactive`            | Admin      | List all soft-deleted books.                     |
-| GET    | `/api/books/{book_id}/summary`   | Public     | Retrieve/generate AI-powered summary.            |
-| POST   | `/api/books/{book_id}/reviews`   | Authenticated | Add a review.                                |
-| GET    | `/api/books/{book_id}/reviews`   | Public     | List all reviews for a book.                     |
+| Method | Endpoint             | Access        | Description               |
+| ------ | -------------------- | --------------| --------------------------|
+| POST   | `/api/auth/register` | Public        | Register new user         |
+| POST   | `/api/auth/login`    | Public        | Login user, return JWTs   |
+| POST   | `/api/auth/refresh`  | Authenticated | Refresh access token      |
+| GET    | `/api/auth/me`       | Authenticated | Get logged-in user's info |
 
 ---
 
-## 🛒 Orders Endpoints
+### 📚 Books Endpoints
 
-| Method | Endpoint                             | Access        | Description                              |
-|--------|--------------------------------------|---------------|------------------------------------------|
-| GET    | `/api/orders/`                      | Authenticated | List orders for the current user.        |
-| POST   | `/api/orders/`                      | Authenticated | Place a new order.                       |
-| GET    | `/api/orders/{order_id}`           | Authenticated | Get details/status of an order.          |
-| POST   | `/api/orders/{order_id}/cancel`    | Authenticated | Cancel a PENDING order.                  |
-| POST   | `/api/orders/{order_id}/pay`       | Authenticated | Mark an order as "PAID".                 |
-| PATCH  | `/api/orders/{order_id}/status`    | Admin         | Admin-only: force update order status.   |
+| Method | Endpoint                       | Access        | Description              |
+| ------ | ------------------------------ | ------------- | ------------------------ |
+| GET    | `/api/books/categories`        | Authenticated | List book categories     |
+| POST   | `/api/books/`                  | Admin         | Add new book             |
+| GET    | `/api/books/`                  | Authenticated | List/filter books        |
+| GET    | `/api/books/{book_id}`         | Authenticated | View single book         |
+| PATCH  | `/api/books/{book_id}`         | Admin         | Update book              |
+| DELETE | `/api/books/{book_id}`         | Admin         | Soft delete              |
+| GET    | `/api/books/inactive`          | Admin         | View soft-deleted books  |
+| GET    | `/api/books/{book_id}/summary` | Authenticated | View/Generate AI summary |
+| POST   | `/api/books/{book_id}/reviews` | Authenticated | Add review               |
+| GET    | `/api/books/{book_id}/reviews` | Authenticated | View reviews             |
 
 ---
 
-# 🔄 Database Seeding
+### 🛒 Orders Endpoints
 
-All seeding is handled by `seed_all.py` (called after migrations).
+| Method | Endpoint                        | Access        | Description            |
+| ------ | ------------------------------- | ------------- | ---------------------- |
+| GET    | `/api/orders/`                  | Authenticated | View all user orders   |
+| POST   | `/api/orders/`                  | Authenticated | Place order using cart |
+| GET    | `/api/orders/{order_id}`        | Authenticated | View specific order    |
+| POST   | `/api/orders/{order_id}/cancel` | Authenticated | Cancel a PENDING order |
+| POST   | `/api/orders/{order_id}/pay`    | Authenticated | View specific order    |
+| PATCH  | `/api/orders/{order_id}/status` | Admin         | View specific order    |
+
+---
+
+## 🔄 Database Seeding
+
+All seeding is handled by `seed.py` (called after migrations).
 
 ### ✅ Admin User
 
@@ -409,7 +408,7 @@ Creates a default admin user if none exists.
 ### 📚 Categories & Books
 
 - Adds default categories if missing.
-- For each book, generates a unique 13-digit ISBN.
+- For each book, generates a unique 13-digit ISBN. (Just for filling up the spot to avoid DB errors)
 - If a book with the same title exists, it’s skipped (idempotent).
 
 ### ▶️ When to Run
@@ -418,7 +417,7 @@ The entrypoint runs this at every startup:
 
 ```bash
 flask db upgrade
-python seed_all.py
+python seed.py
 ```
 
 It’s safe to run multiple times due to idempotency checks.
@@ -431,7 +430,7 @@ It’s safe to run multiple times due to idempotency checks.
 
 - Connects to RabbitMQ (`order_created` queue).
 - On each message:
-  - Decrements stock.
+  - Decrements & Increments stock.
   - Updates order status.
   - Emits WebSocket event to user room.
 
@@ -442,15 +441,15 @@ It’s safe to run multiple times due to idempotency checks.
 
 ### Front-end SPA (JS + HTML)
 
-- Connects to Socket.IO at `http://<host>:5000`.
+- Connects to Socket.IO at `http://localhost:5000`.
 - Authenticates via JWT.
 - Listens to real-time order updates.
 
 ---
 
-# 🧪 Running Tests
+## 🧪 Running Tests (Not yet implemented)
 
-```bash
+<!-- ```bash
 # Optional: activate venv
 source venv-bs/bin/activate
 
@@ -464,27 +463,49 @@ Tests cover:
 - **Books**: CRUD, summaries, reviews
 - **Orders**: place, cancel, pay, transitions
 - **Consumer**: simulated RabbitMQ messages
-- **WebSocket**: mocked Socket.IO events
+- **WebSocket**: mocked Socket.IO events -->
 
 ---
 
-# 🤝 Contributing
+## 🧹 Code Quality with Pre-commit
 
-We welcome PRs, issues, or suggestions!
+I use [`pre-commit`](https://pre-commit.com) to enforce code quality and consistency before each commit. The hooks are configured to automatically run the following:
+### 🛠️ Hooks in Use
 
-1. Fork the repository.
-2. Create a topic branch: `git checkout -b feature/your-idea`.
-3. Make changes (PEP8 + flake8 compliant).
-4. Run tests.
-5. Submit a Pull Request.
+- **General cleanup & checks** (via `pre-commit-hooks`):
+  - `trailing-whitespace`: Removes trailing whitespace.
+  - `end-of-file-fixer`: Ensures a newline at the end of each file.
+  - `check-added-large-files`: Prevents committing large files by mistake.
+  - `check-json`, `check-toml`, `check-xml`, `check-yaml`: Validates file syntax for common data formats.
+  - `debug-statements`: Blocks commits containing `print()` or `pdb`.
+  - `check-builtin-literals`, `check-case-conflict`, `check-docstring-first`, `detect-private-key`: Additional safety and style checks.
 
-Please ensure new features are tested.
+- **`black`** (Python code formatter):
+  - Enforces consistent code formatting using `black`, with a line length of 79 characters.
+
+- **`flake8`** (Python linter):
+  - Identifies linting issues, with extensions like:
+    - `flake8-bugbear` for common bugs and design issues.
+    - `flake8-docstrings` to enforce docstring standards.
+    - `flake8-comprehensions` for list/set/dict comprehension improvements.
+  - Excludes some folders/files such as `migrations/`, `tests/`, and `seed_all.py`.
+
+### 🚀 Setup Instructions
+
+To get started with the hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Now, every time I commit, the configured checks will automatically run. This ensures the codebase stays clean, consistent, and adheres to best practices across formatting, documentation, and logic.
 
 ---
 
 # 📄 License
 
-MIT License. See `LICENSE` file for full details.
+MIT License.
 
 ---
 
