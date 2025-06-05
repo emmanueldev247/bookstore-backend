@@ -356,7 +356,7 @@ A summary of major endpoints. For request/response schemas, refer to live OpenAP
 
 ---
 
-##  Authentication Endpoints 🔐
+## Authentication Endpoints
 
 | Method | Endpoint             | Access        | Description               |
 | ------ | -------------------- | --------------| --------------------------|
@@ -367,7 +367,7 @@ A summary of major endpoints. For request/response schemas, refer to live OpenAP
 
 ---
 
-### Books Endpoints 📚
+## Books Endpoints
 
 | Method | Endpoint                       | Access        | Description              |
 | ------ | ------------------------------ | ------------- | ------------------------ |
@@ -384,7 +384,7 @@ A summary of major endpoints. For request/response schemas, refer to live OpenAP
 
 ---
 
-### Orders Endpoints 🛒
+## Orders Endpoints
 
 | Method | Endpoint                        | Access        | Description            |
 | ------ | ------------------------------- | ------------- | ---------------------- |
@@ -447,7 +447,8 @@ It’s safe to run multiple times due to idempotency checks.
 
 ---
 
-# Running Tests (Not yet implemented)
+# Running Tests
+_(Not yet implemented)_
 
 <!-- ```bash
 # Optional: activate venv
@@ -503,7 +504,7 @@ Now, every time I commit, the configured checks will automatically run. This ens
 
 ---
 
-# License 📄
+# License
 
 MIT License.
 

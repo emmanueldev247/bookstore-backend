@@ -7,7 +7,7 @@ services:
     container_name: bookstore_postgres_prod
     restart: unless-stopped
     env_file:
-      - .postgres
+      - ../services/postgres/.postgres
     volumes:
       - pgdata_prod:/var/lib/postgresql/data
 
@@ -19,7 +19,7 @@ services:
     container_name: bookstore_rabbitmq_prod
     restart: unless-stopped
     env_file:
-      - .rabbitmq
+      - ../services/rabbitmq/.rabbitmq
     volumes:
       - rabbitdata_prod:/var/lib/rabbitmq
 
