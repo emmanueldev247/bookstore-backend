@@ -24,5 +24,6 @@ if [ "$FLASK_ENV" = "development" ]; then
   exec flask run --host=0.0.0.0 --port=5000
 else
   echo "[web] Starting Gunicorn in production mode..."
-  exec gunicorn -k eventlet -w 2 -b 0.0.0.0:5000 app:create_app
+  exec gunicorn -k eventlet -w 2 -b 0.0.0.0:5000 wsgi:app
+
 fi
