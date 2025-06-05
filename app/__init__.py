@@ -2,12 +2,21 @@
 
 import logging
 import os
+from dotenv import load_dotenv
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, render_template
 
-from app.error_handlers import register_error_handlers
-from app.extensions import api, cors, db, jwt, migrate, socketio
+load_dotenv()
+
+env = os.getenv("FLASK_ENV", "production")
+if env == "production":
+    import eventlet
+
+    eventlet.monkey_patch()
+
+from flask import Flask, render_template  # noqa: E402
+from app.error_handlers import register_error_handlers  # noqa: E402
+from app.extensions import api, cors, db, jwt, migrate, socketio  # noqa: E402
 
 
 def create_app() -> Flask:

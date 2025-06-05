@@ -27,4 +27,4 @@ repos:
     hooks:
       - id: flake8
         additional_dependencies: ["flake8-bugbear", "flake8-docstrings", "flake8-comprehensions"]
-        exclude: '^(migrations/.*|tests/.*)'
+        exclude: '^(migrations/.*|tests/.*|seed_all\.py|seed.py)$'
