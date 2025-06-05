@@ -2,9 +2,8 @@
 *.sw*
 .env
 .flaskenv
-seed.py
-pytest.ini
 
+pytest.ini
 instance/
 logs/
 stash/
