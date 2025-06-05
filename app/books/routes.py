@@ -582,7 +582,7 @@ class ReviewResource(MethodView):
     @books_blp.arguments(ReviewCreateSchema)
     @books_blp.response(201, ReviewResponseWrapper)
     @protected
-    def post(validated_data, book_id):
+    def post(self, validated_data, book_id):
         """Add a new review to a book."""
         user_id = get_jwt_identity()
         current_app.logger.info(
