@@ -18,6 +18,7 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 
 ## 📄 Table of Contents
 
+0. [Table of Contents](#table-of-contents)
 1. [Features](#features)
 2. [Directory Structure](#directory-structure)
 3. [Quick Start (Local Development)](#quick-start-local-development)
@@ -29,9 +30,10 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 6. [Database Seeding](#database-seeding)
 7. [WebSocket & Messaging](#websocket--messaging)
 8. [Running Tests](#running-tests)
-9. [Code Quality with Pre-commit](#pre-commit)
-10. [License](#license)
-11. [Design Decisions & AI Integration](#design-decisions--ai-integration)
+9. [Code Quality with Pre-commit](#code-quality-with-pre--commit)
+10. [Author](#author)
+11. [License](#license)
+12. [Design Decisions & AI Integration](#design-decisions--ai-integration)
 
 ---
 
@@ -504,7 +506,7 @@ Now, every time I commit, the configured checks will automatically run. This ens
 
 ---
 
-## 👤 Author
+## Author
 
 **Emmanuel Ademola** <br>
 _Software Engineer_ <br>
