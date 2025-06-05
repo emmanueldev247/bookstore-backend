@@ -35,7 +35,7 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 
 ---
 
-## Features
+# Features
 
 - **OpenAPI / Swagger** documentation via Flask‐Smorest (see `/api/spec` or `/api/docs` in dev).
 - **JWT‐based Authentication**
@@ -69,7 +69,7 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 
 ---
 
-## 🧱 Directory Structure
+# Directory Structure
 
 ```plaintext
 bookstore-backend/
@@ -144,7 +144,7 @@ bookstore-backend/
 ├── logs/                  # Runtime logs (e.g. bookstore.log) (not on repo)
 ```
 
-## Quick Start (Local Development)
+# Quick Start (Local Development)
 
 
 These instructions assume you have **Docker** & **Docker Compose** installed locally, along with **Python 3.8+** if you want to run outside Docker.
@@ -285,7 +285,7 @@ If you want to inspect Postgres, connect with any PostgreSQL client:
 - Password: `debug`
 - Database: `bookstore_db`
 
-## Production Deployment
+# Production Deployment
 
 Below is a high‐level guide to bring up a production‐style environment. In production, we bake code into the image (no volume mounts), ensure `always up` restart policies, and run **Gunicorn** instead of the Flask dev server.
 
@@ -350,13 +350,13 @@ That’s outside the scope of this minimal setup.
 
 ---
 
-## API Reference
+# API Reference
 
 A summary of major endpoints. For request/response schemas, refer to live OpenAPI docs at `/api/docs`.
 
 ---
 
-### 🔐 Authentication Endpoints
+##  Authentication Endpoints 🔐
 
 | Method | Endpoint             | Access        | Description               |
 | ------ | -------------------- | --------------| --------------------------|
@@ -367,7 +367,7 @@ A summary of major endpoints. For request/response schemas, refer to live OpenAP
 
 ---
 
-### 📚 Books Endpoints
+### Books Endpoints 📚
 
 | Method | Endpoint                       | Access        | Description              |
 | ------ | ------------------------------ | ------------- | ------------------------ |
@@ -384,7 +384,7 @@ A summary of major endpoints. For request/response schemas, refer to live OpenAP
 
 ---
 
-### 🛒 Orders Endpoints
+### Orders Endpoints 🛒
 
 | Method | Endpoint                        | Access        | Description            |
 | ------ | ------------------------------- | ------------- | ---------------------- |
@@ -397,7 +397,7 @@ A summary of major endpoints. For request/response schemas, refer to live OpenAP
 
 ---
 
-##  Database Seeding
+#  Database Seeding
 
 All seeding is handled by `seed.py` (called after migrations).
 
@@ -447,7 +447,7 @@ It’s safe to run multiple times due to idempotency checks.
 
 ---
 
-## 🧪 Running Tests (Not yet implemented)
+# Running Tests (Not yet implemented)
 
 <!-- ```bash
 # Optional: activate venv
@@ -467,7 +467,7 @@ Tests cover:
 
 ---
 
-## 🧹 Code Quality with Pre-commit
+# Code Quality with Pre-commit
 
 I use [`pre-commit`](https://pre-commit.com) to enforce code quality and consistency before each commit. The hooks are configured to automatically run the following:
 ### 🛠️ Hooks in Use
@@ -503,13 +503,13 @@ Now, every time I commit, the configured checks will automatically run. This ens
 
 ---
 
-# 📄 License
+# License 📄
 
 MIT License.
 
 ---
 
-# 📘 Design Decisions & AI Integration
+# Design Decisions & AI Integration 📘
 
 See [`DESIGN_DECISIONS.md`](./DESIGN_DECISIONS.md) for details on:
 
