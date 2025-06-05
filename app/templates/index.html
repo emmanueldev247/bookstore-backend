@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bookstore: Real-Time Order Notifications</title>
+
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Quattrocento+Sans:wght@400;700&family=Metamorphous&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Link to external CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}"
+    />
+  </head>
+
+  <body>
+    <!-- ===========================
+         LOGIN CARD
+         =========================== -->
+    <div id="login-card" class="container">
+      <h1 class="heading">Login</h1>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          placeholder="Enter your email"
+          autocomplete="email"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+        />
+      </div>
+
+      <button id="login-button" class="btn-primary">Log In</button>
+      <div id="login-error" class="error-message hidden"></div>
+    </div>
+
+    <!-- ===========================
+         ORDER-NOTIFICATION CARD (HIDDEN UNTIL LOGIN)
+         =========================== -->
+    <div id="order-card" class="container hidden">
+      <div class="header-row">
+        <h1 class="heading">Real-Time Order Notifications</h1>
+        <button id="logout-button" class="btn-secondary hidden">Log Out</button>
+      </div>
+
+      <div class="form-inline">
+        <input
+          type="text"
+          id="order_id"
+          placeholder="Order ID to subscribe"
+        />
+        <button id="subscribe-button" class="btn-secondary">Subscribe</button>
+        <button id="unsubscribe-button" class="btn-secondary hidden">
+          Unsubscribe
+        </button>
+      </div>
+
+      <div class="button-row">
+        <button id="connect-button" class="btn-primary">Connect WebSocket</button>
+        <button id="disconnect-button" class="btn-secondary hidden">
+          Disconnect WebSocket
+        </button>
+      </div>
+
+      <h3 class="log-heading">Log</h3>
+      <div id="log"></div>
+    </div>
+
+    <!-- ===========================
+         Load Socket.IO & App JS
+         =========================== -->
+    <script
+      src="{{ url_for('static', filename='js/socket.io.min.js') }}"
+    ></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
