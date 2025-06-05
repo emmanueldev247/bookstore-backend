@@ -31,7 +31,8 @@ Feel free to explore the source code, experiment locally, or deploy to productio
 7. [WebSocket & Messaging](#websocket--messaging)
 8. [Running Tests](#running-tests)
 9. [Code Quality](#code-quality)
-10. [Author](#author)
+10. [Technical Overview](#technical-overvie)
+11. [Author](#author)
 11. [Design Decisions](#design-decisions)
 12. [License](#license)
 
@@ -506,6 +507,19 @@ Now, every time I commit, the configured checks will automatically run. This ens
 
 ---
 
+# Technical Overview
+
+For an overview of the system architecture, design decisions, and AI integration, please review the [Technical Approach and Design Document](https://docs.google.com/document/d/1lcffzlV_aGXEAu2V6R-pbWebS5k_7Q2OYCXcx9dikcc/edit?usp=sharing).
+
+
+## System Architecture
+
+Below is the system architecture diagram illustrating the key components and their interactions:
+
+![System Architecture Diagram](./bookshop.demo.jpg)
+
+---
+
 # Author
 
 **Emmanuel Ademola** <br>
@@ -514,21 +528,9 @@ _Software Engineer_ <br>
 [LinkedIn](https://linkedin.com/in/emmanueldev247/)
 
 ---
----
 
 # License
 
 MIT License.
 
 ---
-
-# Design Decisions & AI Integration
-
-See [`DESIGN_DECISIONS.md`](./DESIGN_DECISIONS.md) for details on:
-
-- Monolith vs Microservices
-- Flask-Smorest, RabbitMQ, event queues
-- OpenAI vs Cohere API
-- Prompt design, caching
-- WebSocket strategy & eventlet
-- Debugging, extending the system
