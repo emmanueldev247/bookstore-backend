@@ -18,6 +18,8 @@ from flask import Flask, render_template  # noqa: E402
 from app.error_handlers import register_error_handlers  # noqa: E402
 from app.extensions import api, cors, db, jwt, migrate, socketio  # noqa: E402
 
+print("Loaded env source:", os.getenv("SOURCE"))
+
 
 def create_app() -> Flask:
     """Create and return a Flask application instance."""
@@ -34,7 +36,6 @@ def create_app() -> Flask:
     )
 
     config_name = os.getenv("FLASK_ENV", "production").lower()
-    print(f"Configuring app for {config_name} environment")
     if config_name == "development":
         app.config.from_object("app.config.DevelopmentConfig")
     elif config_name == "testing":
@@ -89,6 +90,8 @@ def create_app() -> Flask:
     def index():
         return render_template("index.html")
 
+    app.logger.info(f"Running in {config_name} mode.")
+    app.logger.info(f"Loaded env source: {os.getenv('SOURCE')})")
     return app
 
 

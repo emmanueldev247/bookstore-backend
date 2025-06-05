@@ -68,12 +68,10 @@ class OrderItemReadSchema(Schema):
     author = fields.String(
         dump_only=True,
         attribute="book.author",
-        description="The author of the book for this order item",
     )
     title = fields.String(
         dump_only=True,
         attribute="book.title",
-        description="The title of the book for this order item",
     )
 
 

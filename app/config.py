@@ -60,9 +60,6 @@ class DevelopmentConfig(Config):
 
     DEBUG: bool = True
     ENV: str = "development"
-    SQLALCHEMY_DATABASE_URI: str = (
-        "postgresql://debug:debug@localhost:5432/bookstore_db"
-    )
 
 
 class TestingConfig(Config):
@@ -70,9 +67,7 @@ class TestingConfig(Config):
 
     DEBUG: bool = True
     ENV: str = "testing"
-    SQLALCHEMY_DATABASE_URI: str = (
-        "postgresql://test:test@localhost:5432/bookstore_test"
-    )
+    SQLALCHEMY_DATABASE_URI: str = os.getenv("DATABASE_URL_TEST")
 
 
 class ProductionConfig(Config):

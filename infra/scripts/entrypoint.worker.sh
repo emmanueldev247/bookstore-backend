@@ -9,4 +9,4 @@ done
 echo "[worker] RabbitMQ is ready ✅"
 
 echo "[worker] Starting inventory consumer..."
-exec python -u app/inventory/consumer.py
+exec python -u -m app.inventory.consumer
