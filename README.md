@@ -524,7 +524,7 @@ Below is the system architecture diagram illustrating the key components and the
 
 **Emmanuel Ademola** <br>
 _Software Engineer_ <br>
-[Portfolio](https://emmanueldev247.publicvm.com/) <br>
+[Portfolio](https://emmanueldev247.github.io/) <br>
 [LinkedIn](https://linkedin.com/in/emmanueldev247/)
 
 ---
